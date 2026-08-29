@@ -31,8 +31,6 @@ jobs:
     env:
       # PySide6 无头运行 UI 测试
       QT_QPA_PLATFORM: offscreen
-      # 数据目录重定向到 runner 临时目录（测试 fixtures 另有 tmp 隔离，此为兜底）
-      WORKBENCH_DATA_DIR: ${{ runner.temp }}
       # 云端迁移测试连接串：test_migrations 优先读 CONTROL_PLANE_TEST_DATABASE_URL，
       # 其次回退应用配置 DATABASE_URL（与 services/control-plane/app/settings.py 同源）
       CONTROL_PLANE_TEST_DATABASE_URL: postgresql+psycopg://postgres:postgres@localhost:5432/warehouse_control
@@ -50,7 +48,18 @@ jobs:
       - name: Sync workspace dependencies
         run: uv sync --all-packages --group dev
 
+      # PySide6 在 Linux 上需要的 Qt 运行库（ubuntu runner 未全部预装）
+      - name: Install Qt system libraries (Linux)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libegl1 libgl1 libxkbcommon0 libdbus-1-3 libfontconfig1
+
       - name: Run tests
+        env:
+          # 数据目录重定向到 runner 临时目录（步骤级 env 支持 runner 上下文；
+          # 测试 fixtures 另有 tmp 隔离，此为兜底）
+          WORKBENCH_DATA_DIR: ${{ runner.temp }}
         run: uv run pytest -q
 
       - name: Lint (ruff)
