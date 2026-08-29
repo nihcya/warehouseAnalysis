@@ -2,9 +2,11 @@
 
 连接串优先级（兼容本地 / CI / 测试三种入口）：
 
-1. ``alembic -x database_url=...`` 显式覆盖（最高）；
-2. ``sqlalchemy.url``（alembic.ini 留空；测试经 ``set_main_option`` 注入）；
-3. 环境变量 ``DATABASE_URL``（经 app.settings 读取，默认
+1. ``Config(attributes={"database_url": ...})`` 程序化注入（最高，测试专用；
+   ``command.upgrade`` API 不支持 ``-x``，须用此通道）；
+2. ``alembic -x database_url=...`` CLI 显式覆盖；
+3. ``sqlalchemy.url``（alembic.ini 留空；测试经 ``set_main_option`` 注入）；
+4. 环境变量 ``DATABASE_URL``（经 app.settings 读取，默认
    ``postgresql+psycopg://postgres:postgres@localhost:5432/warehouse_control``）。
 """
 
@@ -34,6 +36,9 @@ target_metadata = None
 
 def _database_url() -> str:
     """按优先级解析本次迁移使用的数据库连接串。"""
+    attr_url = config.attributes.get("database_url")
+    if attr_url:
+        return str(attr_url)
     x_url = context.get_x_argument(as_dictionary=True).get("database_url")
     if x_url:
         return x_url

@@ -84,13 +84,14 @@ def test_control_meta_upgrade_downgrade_roundtrip(postgres_url: str) -> None:
 
     # 注意：不能用 set_main_option 注入含 URL 编码（%3D 等）的连接串——
     # configparser 的 BasicInterpolation 会把 % 当插值符直接抛 ValueError；
-    # 改走 -x database_url 覆盖（env.py 优先级最高，不经过 ini 解析）
+    # 也不能用 command.upgrade(..., x=...)——x 仅 CLI 支持，API 不接受。
+    # 正确通道：Config(attributes=...) 程序化注入，env.py 以最高优先级读取
     test_url = _with_search_path(postgres_url, schema)
 
-    cfg = Config(str(ALEMBIC_INI))
+    cfg = Config(str(ALEMBIC_INI), attributes={"database_url": test_url})
 
     try:
-        command.upgrade(cfg, "head", x={"database_url": test_url})
+        command.upgrade(cfg, "head")
 
         with admin.connect() as connection:
             tables = _tables_in(connection, schema)
@@ -106,7 +107,7 @@ def test_control_meta_upgrade_downgrade_roundtrip(postgres_url: str) -> None:
             ).scalar_one()
             assert schema_version == "control-0001"
 
-        command.downgrade(cfg, "base", x={"database_url": test_url})
+        command.downgrade(cfg, "base")
 
         with admin.connect() as connection:
             tables = _tables_in(connection, schema)
