@@ -1,0 +1,96 @@
+name: Platform CI
+
+# 开发者 A（平台侧）CI：全量 pytest（含云端 PG 迁移测试）、静态检查、
+# OpenAPI 快照一致性门禁与 Web 前端 lint/typecheck 门禁
+on:
+  push:
+    branches:
+      - master
+      - "feature/a-*"
+  pull_request:
+
+jobs:
+  platform:
+    name: platform-workbench (A)
+    runs-on: ubuntu-latest
+    services:
+      # PostgreSQL 17：供云端控制库迁移测试（本地无 PG 时这些测试 skip）
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: warehouse_control
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d warehouse_control"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      # PySide6 无头运行 UI 测试
+      QT_QPA_PLATFORM: offscreen
+      # 云端迁移测试连接串：test_migrations 优先读 CONTROL_PLANE_TEST_DATABASE_URL，
+      # 其次回退应用配置 DATABASE_URL（与 services/control-plane/app/settings.py 同源）
+      CONTROL_PLANE_TEST_DATABASE_URL: postgresql+psycopg://postgres:postgres@localhost:5432/warehouse_control
+      DATABASE_URL: postgresql+psycopg://postgres:postgres@localhost:5432/warehouse_control
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install uv (Python 3.11)
+        uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.11"
+          enable-cache: true
+
+      - name: Sync workspace dependencies
+        run: uv sync --all-packages --group dev
+
+      # PySide6 在 Linux 上需要的 Qt 运行库（ubuntu runner 未全部预装）
+      - name: Install Qt system libraries (Linux)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libegl1 libgl1 libxkbcommon0 libdbus-1-3 libfontconfig1
+
+      - name: Run tests
+        env:
+          # 数据目录重定向到 runner 临时目录（步骤级 env 支持 runner 上下文；
+          # 测试 fixtures 另有 tmp 隔离，此为兜底）
+          WORKBENCH_DATA_DIR: ${{ runner.temp }}
+        run: uv run pytest -q
+
+      - name: Lint (ruff)
+        run: uv run ruff check .
+
+      # 根 pyproject 的 [tool.mypy] 未声明 files，需显式给目标；
+      # control-plane 与 workbench-desktop 的顶层包同名（app），须分两批检查
+      - name: Type check (mypy, A 侧)
+        run: |
+          uv run mypy services/control-plane/app local-data/src scripts
+          uv run mypy apps/workbench-desktop/app
+
+      - name: Re-export OpenAPI snapshot
+        run: uv run python scripts/export_openapi.py
+
+      - name: OpenAPI drift gate
+        run: git diff --exit-code packages/contracts-schema/openapi.json
+
+      - name: Setup Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Enable pnpm via corepack
+        run: corepack enable pnpm
+
+      - name: Install web dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint (web)
+        run: pnpm lint
+
+      - name: Type check (web)
+        run: pnpm typecheck

@@ -1,0 +1,798 @@
+{
+  "components": {
+    "schemas": {
+      "ErrorBody": {
+        "description": "统一错误体：``{\"error\": ...}`` 的内层字段。",
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "details": {
+            "additionalProperties": true,
+            "title": "Details",
+            "type": "object"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "request_id": {
+            "title": "Request Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "message",
+          "request_id"
+        ],
+        "title": "ErrorBody",
+        "type": "object"
+      },
+      "ErrorResponse": {
+        "description": "统一错误响应。",
+        "properties": {
+          "error": {
+            "$ref": "#/components/schemas/ErrorBody"
+          }
+        },
+        "required": [
+          "error"
+        ],
+        "title": "ErrorResponse",
+        "type": "object"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "title": "Detail",
+            "type": "array"
+          }
+        },
+        "title": "HTTPValidationError",
+        "type": "object"
+      },
+      "HealthResponse": {
+        "description": "/health 响应：应用状态、版本与控制库可达性。",
+        "properties": {
+          "app_version": {
+            "title": "App Version",
+            "type": "string"
+          },
+          "database": {
+            "title": "Database",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "app_version",
+          "database"
+        ],
+        "title": "HealthResponse",
+        "type": "object"
+      },
+      "LoginRequest": {
+        "description": "登录请求（M0 占位：字段仅为接口契约展示）。",
+        "properties": {
+          "password": {
+            "title": "Password",
+            "type": "string"
+          },
+          "username": {
+            "title": "Username",
+            "type": "string"
+          }
+        },
+        "required": [
+          "username",
+          "password"
+        ],
+        "title": "LoginRequest",
+        "type": "object"
+      },
+      "RefreshRequest": {
+        "description": "刷新访问令牌请求（M0 占位）。",
+        "properties": {
+          "refresh_token": {
+            "title": "Refresh Token",
+            "type": "string"
+          }
+        },
+        "required": [
+          "refresh_token"
+        ],
+        "title": "RefreshRequest",
+        "type": "object"
+      },
+      "ValidationError": {
+        "properties": {
+          "ctx": {
+            "title": "Context",
+            "type": "object"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "title": "Location",
+            "type": "array"
+          },
+          "msg": {
+            "title": "Message",
+            "type": "string"
+          },
+          "type": {
+            "title": "Error Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError",
+        "type": "object"
+      }
+    }
+  },
+  "info": {
+    "description": "云端控制平面 /api/v1（M0 骨架：stub 路由 + 统一错误响应）",
+    "title": "warehouse-control-plane",
+    "version": "0.1.0"
+  },
+  "openapi": "3.1.0",
+  "paths": {
+    "/api/v1/auth/login": {
+      "post": {
+        "description": "账号登录（M0 stub：恒 501；真实认证在 M2 交付）。",
+        "operationId": "login_api_v1_auth_login_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "501": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "M0 未实现（stub）"
+          }
+        },
+        "summary": "账号登录（stub）",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/v1/auth/logout": {
+      "post": {
+        "description": "退出登录（M0 stub：恒 501）。",
+        "operationId": "logout_api_v1_auth_logout_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "501": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "M0 未实现（stub）"
+          }
+        },
+        "summary": "退出登录（stub）",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/v1/auth/refresh": {
+      "post": {
+        "description": "刷新访问令牌（M0 stub：恒 501）。",
+        "operationId": "refresh_api_v1_auth_refresh_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RefreshRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "501": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "M0 未实现（stub）"
+          }
+        },
+        "summary": "刷新访问令牌（stub）",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/v1/config": {
+      "get": {
+        "description": "拉取商户生效配置（M0 stub：恒 501）。",
+        "operationId": "get_config_api_v1_config_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "缺少 Authorization 凭证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "缺少所需 Scope"
+          },
+          "501": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "M0 未实现（stub）"
+          }
+        },
+        "summary": "拉取配置（stub）",
+        "tags": [
+          "config"
+        ]
+      }
+    },
+    "/api/v1/devices": {
+      "get": {
+        "description": "查询当前商户的设备列表（M0 stub：恒 501）。",
+        "operationId": "list_devices_api_v1_devices_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "缺少 Authorization 凭证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "缺少所需 Scope"
+          },
+          "501": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "M0 未实现（stub）"
+          }
+        },
+        "summary": "设备列表（stub）",
+        "tags": [
+          "devices"
+        ]
+      }
+    },
+    "/api/v1/devices/register": {
+      "post": {
+        "description": "设备注册（M0 stub：首次激活流程，不挂 Scope 依赖，恒 501）。",
+        "operationId": "register_device_api_v1_devices_register_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "501": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "M0 未实现（stub）"
+          }
+        },
+        "summary": "设备注册（stub）",
+        "tags": [
+          "devices"
+        ]
+      }
+    },
+    "/api/v1/heartbeat": {
+      "post": {
+        "description": "设备心跳上报（M0 stub：恒 501）。",
+        "operationId": "heartbeat_api_v1_heartbeat_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "缺少 Authorization 凭证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "缺少所需 Scope"
+          },
+          "501": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "M0 未实现（stub）"
+          }
+        },
+        "summary": "设备心跳（stub）",
+        "tags": [
+          "heartbeat"
+        ]
+      }
+    },
+    "/api/v1/merchants": {
+      "get": {
+        "description": "开发者查询商户列表（M0 stub：恒 501）。",
+        "operationId": "list_merchants_api_v1_merchants_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "缺少 Authorization 凭证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "缺少所需 Scope"
+          },
+          "501": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "M0 未实现（stub）"
+          }
+        },
+        "summary": "商户列表（开发者，stub）",
+        "tags": [
+          "merchants"
+        ]
+      }
+    },
+    "/api/v1/sync/ack": {
+      "post": {
+        "description": "确认同步事件已应用（M0 stub：恒 501）。",
+        "operationId": "ack_sync_api_v1_sync_ack_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "缺少 Authorization 凭证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "缺少所需 Scope"
+          },
+          "501": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "M0 未实现（stub）"
+          }
+        },
+        "summary": "确认同步事件（stub）",
+        "tags": [
+          "sync"
+        ]
+      }
+    },
+    "/api/v1/sync/events/pull": {
+      "get": {
+        "description": "拉取待同步的加密事件信封（M0 stub：恒 501）。",
+        "operationId": "pull_sync_events_api_v1_sync_events_pull_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "缺少 Authorization 凭证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "缺少所需 Scope"
+          },
+          "501": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "M0 未实现（stub）"
+          }
+        },
+        "summary": "拉取同步事件（stub）",
+        "tags": [
+          "sync"
+        ]
+      }
+    },
+    "/api/v1/tasks": {
+      "get": {
+        "description": "查询商户调度任务（M0 stub：恒 501）。",
+        "operationId": "list_tasks_api_v1_tasks_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "缺少 Authorization 凭证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "缺少所需 Scope"
+          },
+          "501": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "M0 未实现（stub）"
+          }
+        },
+        "summary": "任务列表（stub）",
+        "tags": [
+          "tasks"
+        ]
+      }
+    },
+    "/api/v1/tasks/pull": {
+      "post": {
+        "description": "设备拉取待执行任务（M0 stub：恒 501）。",
+        "operationId": "pull_tasks_api_v1_tasks_pull_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "缺少 Authorization 凭证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "缺少所需 Scope"
+          },
+          "501": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "M0 未实现（stub）"
+          }
+        },
+        "summary": "拉取待执行任务（stub）",
+        "tags": [
+          "tasks"
+        ]
+      }
+    },
+    "/api/v1/telemetry": {
+      "get": {
+        "description": "开发者按商户 / 设备 / 版本 / 错误码筛选技术日志（M0 stub：恒 501）。",
+        "operationId": "get_telemetry_api_v1_telemetry_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "缺少 Authorization 凭证"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "缺少所需 Scope"
+          },
+          "501": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "M0 未实现（stub）"
+          }
+        },
+        "summary": "技术日志查询（开发者，stub）",
+        "tags": [
+          "telemetry"
+        ]
+      }
+    },
+    "/health": {
+      "get": {
+        "description": "返回 200 与应用版本、数据库可达状态。\n\n数据库不可达时仍返回 200（status 保持 ok），database 字段如实为 ``down``；\n路由为同步函数（探测在线程池执行，不阻塞事件循环）。",
+        "operationId": "health_health_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "健康检查",
+        "tags": [
+          "health"
+        ]
+      }
+    }
+  }
+}

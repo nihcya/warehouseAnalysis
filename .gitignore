@@ -33,6 +33,7 @@ Thumbs.db
 # Node（A 侧 Web 应用后续使用）
 node_modules/
 .next/
+*.tsbuildinfo
 
 # 性能基准输出（M0 为 stdout，后续落盘时也不入库）
 benchmark-out/

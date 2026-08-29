@@ -20,7 +20,18 @@ jobs:
       - name: Sync workspace dependencies
         run: uv sync --all-packages --group dev
 
+      # PySide6 在 Linux 上需要的 Qt 运行库（ubuntu runner 未全部预装）：
+      # A 侧工作台测试已纳入全量 pytest，需可无头加载 PySide6
+      - name: Install Qt system libraries (Linux)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libegl1 libgl1 libxkbcommon0 libdbus-1-3 libfontconfig1
+
       - name: Run tests
+        env:
+          # PySide6 无头运行（A 侧 workbench-desktop 的 UI 测试）
+          QT_QPA_PLATFORM: offscreen
         run: uv run pytest
 
       - name: Lint (ruff)

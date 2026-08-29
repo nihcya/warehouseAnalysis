@@ -6,6 +6,7 @@ requires-python = ">=3.11,<3.12"
 dependencies = [
     "contracts-python",
     "warehouse-engine",
+    "local-data",
 ]
 
 # 根项目仅承载工作区与工具链配置，自身不构建为可分发包
@@ -13,14 +14,18 @@ dependencies = [
 package = false
 
 [tool.uv.workspace]
-members = ["packages/*"]
+members = ["packages/*", "services/*", "apps/*", "local-data"]
 # contracts-schema 仅存放生成的 JSON Schema，不是 Python 包，需从成员 glob 中排除
-exclude = ["packages/contracts-schema"]
+# apps/web 为 pnpm 成员（Next.js），同样不参与 uv workspace
+exclude = ["packages/contracts-schema", "apps/web"]
 
 # 根声明的 sources 对所有 workspace 成员生效
 [tool.uv.sources]
 contracts-python = { workspace = true }
 warehouse-engine = { workspace = true }
+control-plane = { workspace = true }
+local-data = { workspace = true }
+workbench-desktop = { workspace = true }
 
 [dependency-groups]
 dev = [
@@ -29,10 +34,18 @@ dev = [
     "ruff>=0.6",
     "mypy>=1.11",
     "jsonschema>=4.26.0",
+    "pytest-qt>=4.4",
+    "httpx>=0.27",
 ]
 
 [tool.pytest.ini_options]
-testpaths = ["tests"]
+testpaths = [
+    "tests",
+    "services/control-plane/tests",
+    "local-data/tests",
+    "apps/workbench-desktop/tests",
+]
+addopts = "--import-mode=importlib"
 
 [tool.ruff]
 line-length = 100

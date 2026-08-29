@@ -1,0 +1,16 @@
+{
+  "name": "warehouse-analysis",
+  "version": "0.1.0",
+  "private": true,
+  "description": "仓库品类分析决策工具：pnpm workspace 根配置（Web 前端与类型生成）",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "web:dev": "pnpm --filter web dev",
+    "lint": "pnpm -r lint",
+    "typecheck": "pnpm -r typecheck",
+    "test:e2e": "pnpm -r test:e2e",
+    "generate:api": "pnpm --filter web generate:api"
+  }
+}

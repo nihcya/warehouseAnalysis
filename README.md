@@ -117,30 +117,36 @@ flowchart LR
 
 ```text
 warehouseAnalysis/
+├── apps/
+│   ├── workbench-desktop/          # 开发者 A：PySide6 工作台（presentation/application/domain/infrastructure/workers）
+│   └── web/                        # 开发者 A：Next.js 官网、商户模式、开发者模式
+├── services/
+│   └── control-plane/              # 开发者 A：FastAPI /api/v1、认证、设备、配置、状态、同步、日志
+├── local-data/                     # 开发者 A：本地 SQLite ORM、Alembic 迁移、Repository
 ├── packages/
-│   ├── contracts-python/          # 共同维护：Pydantic 模型、枚举、错误码（A/B 契约唯一来源）
-│   ├── contracts-schema/          # 共同维护：JSON Schema 快照（CI 防漂移门禁）
-│   └── warehouse-engine/          # 开发者 B：纯 Python 分析引擎
+│   ├── contracts-python/           # 共同维护：Pydantic 模型、枚举、错误码（A/B 契约唯一来源）
+│   ├── contracts-schema/           # 共同维护：JSON Schema / OpenAPI 快照（CI 防漂移门禁）
+│   └── warehouse-engine/           # 开发者 B：纯 Python 分析引擎
 │       └── src/warehouse_engine/
-│           ├── engine.py          #   WarehouseEngine：validate_dataset / analyze / list_capabilities
-│           ├── fake.py            #   FakeEngine：fixture 驱动，供 A 的工作台联调
-│           ├── validation/        #   输入校验：字段、精度、重复事件、期间、负库存
-│           ├── calculators/       #   五个计算器（M0 存根，公式口径见 docs/formula-spec.md）
-│           ├── errors.py          #   错误码 → 异常映射
-│           └── result.py          #   结构化结果与输入摘要（dataset digest）
-├── skills/                        # 开发者 B：五个 SKILL.md + manifest.json（版本/兼容矩阵/降级策略）
+│           ├── engine.py           #   WarehouseEngine：validate_dataset / analyze / list_capabilities
+│           ├── fake.py             #   FakeEngine：fixture 驱动，供 A 的工作台联调
+│           ├── validation/         #   输入校验：字段、精度、重复事件、期间、负库存
+│           ├── calculators/        #   五个计算器（M0 存根，公式口径见 docs/formula-spec.md）
+│           ├── errors.py           #   错误码 → 异常映射
+│           └── result.py           #   结构化结果与输入摘要（dataset digest）
+├── skills/                         # 开发者 B：五个 SKILL.md + manifest.json（版本/兼容矩阵/降级策略）
 ├── tests/
-│   ├── contract/                  # 契约正反例、Schema 一致性、fixture 过 Schema 校验
-│   ├── engine/                    # 引擎接口、黄金数据、边界数据、Hypothesis 库存守恒
-│   └── fixtures/                  # golden/v0.1.0 黄金数据 + edge/ 七类边界样例 + fake-analysis.json
-├── docs/                          # 项目文档（见下节）
-├── scripts/                       # export_schemas.py（Schema 导出）、perf_bench.py（性能基准占位）
-├── .github/workflows/engine-ci.yml  # B 侧 CI：pytest → ruff → mypy → Schema 漂移门禁
-├── pyproject.toml / uv.lock       # uv workspace 根配置与锁文件（CPython 3.11）
-└── CHANGELOG.md                   # B 侧变更记录
+│   ├── contract/                   # 契约正反例、Schema 一致性、fixture 过 Schema 校验
+│   ├── engine/                     # 引擎接口、黄金数据、边界数据、Hypothesis 库存守恒
+│   └── fixtures/                   # golden/v0.1.0 黄金数据 + edge/ 七类边界样例 + fake-analysis.json
+├── docs/                           # 项目文档（见下节）
+├── scripts/                        # export_schemas.py、perf_bench.py、verify_schema.py
+├── .github/workflows/              # engine-ci.yml（B 侧）、platform-ci.yml（A 侧）
+├── pyproject.toml / uv.lock        # uv workspace 根配置与锁文件（CPython 3.11）
+├── package.json / pnpm-lock.yaml   # pnpm workspace 根配置（Node.js 22 LTS）
+├── docker-compose.dev.yml          # 本地 PostgreSQL 容器
+└── CHANGELOG.md                    # 变更记录
 ```
-
-后续 A 侧模块将按主基线规划加入：`apps/workbench-desktop`（PySide6 工作台）、`apps/web`（Next.js）、`services/control-plane`（FastAPI）、`local-data`（SQLite ORM 与 Alembic 迁移）。
 
 ## 四、docs 文件夹文档说明
 
@@ -191,12 +197,25 @@ flowchart TB
 
 ---
 
-**快速开始**：
+**快速开始**（Python 3.11 + uv；Web 另需 Node.js 22 LTS + pnpm）：
 
 ```powershell
-uv sync --all-packages --group dev   # 安装（自动解析 Python 3.11）
-uv run pytest                        # 47 个测试
-uv run python scripts/export_schemas.py  # 重新导出 JSON Schema
+# 首次安装
+uv sync --all-packages --group dev
+pnpm install
+docker compose -f docker-compose.dev.yml up -d postgres   # 本地 PostgreSQL
+
+# 启动云端 API / Web / 工作台
+cd services/control-plane; uv run uvicorn app.main:app --reload --port 8000   # 完成后 cd 回仓库根
+pnpm --filter web dev
+cd apps/workbench-desktop; uv run python -m app    # WORKBENCH_ENGINE=fake（默认）；完成后 cd 回仓库根
+
+# 全量检查
+uv run pytest
+uv run ruff check packages scripts tests services local-data apps
+pnpm lint
+pnpm typecheck
+uv run python scripts/export_schemas.py                    # 重新导出 JSON Schema
 ```
 
-详细交接信息见 [docs/m0-handover-b.md](docs/m0-handover-b.md)。
+详细交接信息见 [docs/m0-handover-b.md](docs/m0-handover-b.md)（B 侧）与 [docs/m0-handover-a.md](docs/m0-handover-a.md)（A 侧）。

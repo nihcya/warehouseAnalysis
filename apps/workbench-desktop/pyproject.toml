@@ -1,0 +1,20 @@
+[project]
+name = "workbench-desktop"
+version = "0.1.0"
+description = "本地工作台：PySide6 桌面 UI、应用服务、引擎适配与托盘 Agent（开发者 A）"
+requires-python = ">=3.11,<3.12"
+dependencies = [
+    "contracts-python",
+    "warehouse-engine",
+    "local-data",
+    "PySide6>=6.7",
+]
+
+# 应用型成员：不构建为可分发包，仅解析依赖（按主基线 §20.3 以 python -m 运行）
+[tool.uv]
+package = false
+
+[tool.uv.sources]
+contracts-python = { workspace = true }
+warehouse-engine = { workspace = true }
+local-data = { workspace = true }
