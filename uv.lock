@@ -139,7 +139,7 @@ wheels = [
 
 [[package]]
 name = "contracts-python"
-version = "0.1.0"
+version = "0.2.0"
 source = { editable = "packages/contracts-python" }
 dependencies = [
     { name = "pydantic" },
@@ -1013,7 +1013,7 @@ dev = [
 
 [[package]]
 name = "warehouse-engine"
-version = "0.1.0"
+version = "0.2.0"
 source = { editable = "packages/warehouse-engine" }
 dependencies = [
     { name = "contracts-python" },

@@ -53,5 +53,24 @@
       }
     ],
     "replenishment": []
+  },
+  "expected": {
+    "blocked": false,
+    "metrics": {
+      "F-KPI-001": {"value": "0", "unit": "件", "sample_count": 1, "tolerance": "qty"},
+      "F-KPI-002": {"value": "30", "unit": "件", "sample_count": 1, "tolerance": "qty"},
+      "F-KPI-003": {"value": "0", "unit": "件", "sample_count": 1, "tolerance": "qty"},
+      "F-KPI-004": {"value": "0.000000", "unit": "ratio", "sample_count": 1, "tolerance": "ratio"},
+      "F-KPI-005": {"value": "36.00", "unit": "CNY", "sample_count": 1, "tolerance": "money"},
+      "F-COGS-001": {"value": "0.00", "unit": "CNY", "sample_count": 1, "tolerance": "money"},
+      "F-KPI-006": {"value": "null", "unit": "次/期间", "sample_count": 1, "tolerance": "ratio", "reason": "turnover_nonpositive"},
+      "F-KPI-007": {"value": "null", "unit": "天", "sample_count": 1, "tolerance": "ratio", "reason": "turnover_nonpositive"},
+      "F-KPI-008": {"value": "null", "unit": "天", "sample_count": 1, "tolerance": "ratio", "reason": "no_outflow"}
+    },
+    "analyze_warnings": [
+      {"code": "PERIOD_MISMATCH", "fields": ["move_date"]},
+      {"code": "ANALYSIS_PLACEHOLDER", "fields": []}
+    ],
+    "derivation": "期间左闭右开：首日 2026-06-01 入库 30 计入本期（期初 0、期末 30）；end_date 当天（2026-06-30）出库 6 不参与重放（校验层 PERIOD_MISMATCH）→ 出库量 0、COGS 0.00；库存价值 = 30×1.20 = 36.00；动销率 = 0/1 = 0.000000；平均库存价值 (0+36.00)/2 = 18 > 0 但 COGS/avg = 0 ≤ 0 → 周转率/天数 null（turnover_nonpositive）；daily_out = 0 → 覆盖天数 null（no_outflow）"
   }
 }

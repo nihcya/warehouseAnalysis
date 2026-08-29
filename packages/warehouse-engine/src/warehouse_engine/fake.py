@@ -30,7 +30,7 @@ from warehouse_engine.errors import DataValidationError
 from warehouse_engine.validation.rules import apply_dataset_rules
 
 #: FakeEngine 的引擎版本标识（区别于真实引擎，便于 UI 与测试识别联调来源）
-FAKE_ENGINE_VERSION = "0.1.0-fake"
+FAKE_ENGINE_VERSION = "0.2.0-fake"
 
 
 class FakeEngine:

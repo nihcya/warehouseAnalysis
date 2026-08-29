@@ -1,0 +1,282 @@
+{
+  "request": {
+    "schema_version": "1.0",
+    "run_id": "run-golden-0002",
+    "start_date": "2026-06-01",
+    "end_date": "2026-06-30",
+    "warehouse_ids": ["WH-01"],
+    "filters": {"categories": ["饮料", "零食"]},
+    "parameters": {}
+  },
+  "dataset": {
+    "schema_version": "1.0",
+    "skus": [
+      {
+        "sku_id": "SKU-1001",
+        "name": "苏打水 330ml",
+        "category": "饮料",
+        "unit": "罐",
+        "unit_cost": "3.00",
+        "currency": "CNY"
+      },
+      {
+        "sku_id": "SKU-1002",
+        "name": "气泡水 500ml",
+        "category": "饮料",
+        "unit": "瓶",
+        "unit_cost": "1.50",
+        "currency": "CNY"
+      },
+      {
+        "sku_id": "SKU-1003",
+        "name": "柠檬茶 250ml",
+        "category": "饮料",
+        "unit": "罐",
+        "unit_cost": "2.00",
+        "currency": "CNY"
+      },
+      {
+        "sku_id": "SKU-1004",
+        "name": "即饮咖啡 240ml",
+        "category": "饮料",
+        "unit": "罐",
+        "unit_cost": "2.50",
+        "currency": "CNY"
+      },
+      {
+        "sku_id": "SKU-1005",
+        "name": "混合坚果 100g",
+        "category": "零食",
+        "unit": "袋",
+        "unit_cost": null,
+        "currency": "CNY"
+      },
+      {
+        "sku_id": "SKU-1006",
+        "name": "苏打饼干 80g",
+        "category": "零食",
+        "unit": "袋",
+        "unit_cost": null,
+        "currency": "CNY"
+      },
+      {
+        "sku_id": "SKU-1007",
+        "name": "黑巧克力 45g",
+        "category": "零食",
+        "unit": "盒",
+        "unit_cost": "4.00",
+        "currency": "CNY"
+      }
+    ],
+    "movements": [
+      {
+        "event_id": "EVT-2001",
+        "sku_id": "SKU-1001",
+        "move_type": "INBOUND",
+        "quantity": "20",
+        "move_date": "2026-05-10",
+        "occurred_at": "2026-05-10T08:00:00Z",
+        "warehouse_id": "WH-01",
+        "unit_cost": "2.00",
+        "source": "IMPORT"
+      },
+      {
+        "event_id": "EVT-2002",
+        "sku_id": "SKU-1001",
+        "move_type": "STOCKTAKE",
+        "quantity": "25",
+        "move_date": "2026-05-20",
+        "occurred_at": "2026-05-20T10:00:00Z",
+        "warehouse_id": "WH-01",
+        "source": "ADJUSTMENT"
+      },
+      {
+        "event_id": "EVT-2003",
+        "sku_id": "SKU-1001",
+        "move_type": "OUTBOUND",
+        "quantity": "10",
+        "move_date": "2026-05-25",
+        "occurred_at": "2026-05-25T09:00:00Z",
+        "warehouse_id": "WH-01",
+        "source": "IMPORT"
+      },
+      {
+        "event_id": "EVT-2004",
+        "sku_id": "SKU-1001",
+        "move_type": "REVERSAL",
+        "quantity": "10",
+        "move_date": "2026-05-28",
+        "occurred_at": "2026-05-28T09:00:00Z",
+        "warehouse_id": "WH-01",
+        "reversal_of": "EVT-2003",
+        "source": "ADJUSTMENT"
+      },
+      {
+        "event_id": "EVT-2005",
+        "sku_id": "SKU-1001",
+        "move_type": "INBOUND",
+        "quantity": "15",
+        "move_date": "2026-06-05",
+        "occurred_at": "2026-06-05T08:00:00Z",
+        "warehouse_id": "WH-01",
+        "unit_cost": "3.00",
+        "source": "IMPORT"
+      },
+      {
+        "event_id": "EVT-2006",
+        "sku_id": "SKU-1001",
+        "move_type": "OUTBOUND",
+        "quantity": "12",
+        "move_date": "2026-06-12",
+        "occurred_at": "2026-06-12T08:00:00Z",
+        "warehouse_id": "WH-01",
+        "source": "IMPORT"
+      },
+      {
+        "event_id": "EVT-2101",
+        "sku_id": "SKU-1002",
+        "move_type": "INBOUND",
+        "quantity": "10",
+        "move_date": "2026-06-03",
+        "occurred_at": "2026-06-03T08:00:00Z",
+        "warehouse_id": "WH-01",
+        "unit_cost": "1.50",
+        "source": "IMPORT"
+      },
+      {
+        "event_id": "EVT-2102",
+        "sku_id": "SKU-1002",
+        "move_type": "OUTBOUND",
+        "quantity": "10",
+        "move_date": "2026-06-15",
+        "occurred_at": "2026-06-15T08:00:00Z",
+        "warehouse_id": "WH-01",
+        "source": "IMPORT"
+      },
+      {
+        "event_id": "EVT-2201",
+        "sku_id": "SKU-1003",
+        "move_type": "INBOUND",
+        "quantity": "5",
+        "move_date": "2026-06-04",
+        "occurred_at": "2026-06-04T08:00:00Z",
+        "warehouse_id": "WH-01",
+        "unit_cost": "2.00",
+        "source": "IMPORT"
+      },
+      {
+        "event_id": "EVT-2202",
+        "sku_id": "SKU-1003",
+        "move_type": "OUTBOUND",
+        "quantity": "8",
+        "move_date": "2026-06-10",
+        "occurred_at": "2026-06-10T08:00:00Z",
+        "warehouse_id": "WH-01",
+        "source": "IMPORT"
+      },
+      {
+        "event_id": "EVT-2301",
+        "sku_id": "SKU-1004",
+        "move_type": "INBOUND",
+        "quantity": "20",
+        "move_date": "2026-06-02",
+        "occurred_at": "2026-06-02T08:00:00Z",
+        "warehouse_id": "WH-01",
+        "unit_cost": "2.50",
+        "source": "IMPORT"
+      },
+      {
+        "event_id": "EVT-2302",
+        "sku_id": "SKU-1004",
+        "move_type": "RETURN",
+        "quantity": "6",
+        "move_date": "2026-06-08",
+        "occurred_at": "2026-06-08T14:00:00Z",
+        "warehouse_id": "WH-01",
+        "source": "MINI_PROGRAM"
+      },
+      {
+        "event_id": "EVT-2303",
+        "sku_id": "SKU-1004",
+        "move_type": "OUTBOUND",
+        "quantity": "4",
+        "move_date": "2026-06-20",
+        "occurred_at": "2026-06-20T08:00:00Z",
+        "warehouse_id": "WH-01",
+        "source": "IMPORT"
+      },
+      {
+        "event_id": "EVT-2401",
+        "sku_id": "SKU-1005",
+        "move_type": "INBOUND",
+        "quantity": "12",
+        "move_date": "2026-06-05",
+        "occurred_at": "2026-06-05T09:00:00Z",
+        "warehouse_id": "WH-01",
+        "source": "IMPORT"
+      },
+      {
+        "event_id": "EVT-2402",
+        "sku_id": "SKU-1005",
+        "move_type": "OUTBOUND",
+        "quantity": "3",
+        "move_date": "2026-06-18",
+        "occurred_at": "2026-06-18T08:00:00Z",
+        "warehouse_id": "WH-01",
+        "source": "IMPORT"
+      },
+      {
+        "event_id": "EVT-2501",
+        "sku_id": "SKU-1006",
+        "move_type": "INBOUND",
+        "quantity": "7",
+        "move_date": "2026-06-06",
+        "occurred_at": "2026-06-06T08:00:00Z",
+        "warehouse_id": "WH-01",
+        "source": "IMPORT"
+      },
+      {
+        "event_id": "EVT-2601",
+        "sku_id": "SKU-1007",
+        "move_type": "INBOUND",
+        "quantity": "10",
+        "move_date": "2026-06-02",
+        "occurred_at": "2026-06-02T10:00:00Z",
+        "warehouse_id": "WH-01",
+        "unit_cost": "4.00",
+        "source": "IMPORT"
+      },
+      {
+        "event_id": "EVT-2602",
+        "sku_id": "SKU-1007",
+        "move_type": "OUTBOUND",
+        "quantity": "6",
+        "move_date": "2026-06-09",
+        "occurred_at": "2026-06-09T08:00:00Z",
+        "warehouse_id": "WH-01",
+        "source": "IMPORT"
+      },
+      {
+        "event_id": "EVT-2603",
+        "sku_id": "SKU-1007",
+        "move_type": "REVERSAL",
+        "quantity": "6",
+        "move_date": "2026-06-16",
+        "occurred_at": "2026-06-16T08:00:00Z",
+        "warehouse_id": "WH-01",
+        "reversal_of": "EVT-2602",
+        "source": "ADJUSTMENT"
+      }
+    ],
+    "snapshots": [
+      {
+        "sku_id": "SKU-1005",
+        "snapshot_date": "2026-06-30",
+        "quantity": "9",
+        "warehouse_id": "WH-01",
+        "inventory_value": "27.00"
+      }
+    ],
+    "replenishment": []
+  }
+}

@@ -35,5 +35,9 @@
     ],
     "snapshots": [],
     "replenishment": []
+  },
+  "expected": {
+    "blocked": true,
+    "derivation": "精度违规（quantity scale=4、unit_cost scale=3 超限）触发两条 DATA_VALIDATION_FAILED 阻断 issue（valid=false）：analyze 抛 DataValidationError，不产出任何指标（指标层无数值断言，阻断行为本身即冻结点）"
   }
 }
