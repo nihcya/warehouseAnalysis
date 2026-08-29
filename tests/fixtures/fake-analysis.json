@@ -1,0 +1,60 @@
+{
+  "schema_version": "1.0",
+  "run_id": "run-fixture-0001",
+  "engine_version": "0.1.0-fake",
+  "formula_version": "0.1.0",
+  "period_start": "2026-06-01",
+  "period_end": "2026-06-30",
+  "metrics": [
+    {
+      "name": "KPI.OUTBOUND_QTY",
+      "value": "60.5",
+      "unit": "件",
+      "formula_id": "F-KPI-003",
+      "formula_version": "0.1.0",
+      "sample_count": 3
+    },
+    {
+      "name": "KPI.INVENTORY_VALUE",
+      "value": "129.60",
+      "unit": "CNY",
+      "formula_id": "F-KPI-005",
+      "formula_version": "0.1.0",
+      "sample_count": 3
+    },
+    {
+      "name": "KPI.TURNOVER_RATE",
+      "value": 2.4,
+      "unit": "次/期间",
+      "formula_id": "F-KPI-006",
+      "formula_version": "0.1.0",
+      "sample_count": 3
+    },
+    {
+      "name": "KPI.COVER_DAYS",
+      "value": 12.5,
+      "unit": "天",
+      "formula_id": "F-KPI-008",
+      "formula_version": "0.1.0",
+      "sample_count": 3
+    }
+  ],
+  "warnings": [
+    {
+      "code": "ANALYSIS_PLACEHOLDER",
+      "severity": "INFO",
+      "message": "FakeEngine 占位结果：metrics 为冻结 fixture 值，仅供 A 侧工作台联调，非真实计算。",
+      "fields": [],
+      "blocking": false
+    }
+  ],
+  "summary": "FakeEngine 占位结果：由 tests/fixtures/fake-analysis.json 冻结，供工作台联调使用。",
+  "input_summary": {
+    "sku_count": 3,
+    "movement_count": 12,
+    "snapshot_count": 3,
+    "period_start": "2026-06-01",
+    "period_end": "2026-06-30",
+    "dataset_digest": "03bb187bd4ff9ee5d0dc88ae669ece94746f644cbbe342610930ede554627fe8"
+  }
+}

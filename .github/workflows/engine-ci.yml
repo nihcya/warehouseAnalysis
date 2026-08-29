@@ -1,0 +1,36 @@
+name: Engine CI
+
+# 开发者 B（引擎侧）CI：测试、静态检查与契约 Schema 一致性门禁
+on: [push, pull_request]
+
+jobs:
+  engine:
+    name: warehouse-engine (B)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install uv (Python 3.11)
+        uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.11"
+          enable-cache: true
+
+      - name: Sync workspace dependencies
+        run: uv sync --all-packages --group dev
+
+      - name: Run tests
+        run: uv run pytest
+
+      - name: Lint (ruff)
+        run: uv run ruff check packages scripts
+
+      - name: Type check (mypy)
+        run: uv run mypy packages/warehouse-engine/src packages/contracts-python/src
+
+      - name: Re-export contract schemas
+        run: uv run python scripts/export_schemas.py
+
+      - name: Schema drift gate
+        run: git diff --exit-code packages/contracts-schema

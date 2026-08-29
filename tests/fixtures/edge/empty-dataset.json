@@ -1,0 +1,18 @@
+{
+  "request": {
+    "schema_version": "1.0",
+    "run_id": "run-edge-empty",
+    "start_date": "2026-06-01",
+    "end_date": "2026-06-30",
+    "warehouse_ids": ["WH-01"],
+    "filters": {},
+    "parameters": {}
+  },
+  "dataset": {
+    "schema_version": "1.0",
+    "skus": [],
+    "movements": [],
+    "snapshots": [],
+    "replenishment": []
+  }
+}

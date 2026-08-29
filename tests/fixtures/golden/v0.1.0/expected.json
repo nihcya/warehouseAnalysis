@@ -1,0 +1,14 @@
+{
+  "validation": {
+    "valid": true,
+    "issue_codes": [],
+    "warning_codes": ["NEGATIVE_BALANCE", "PERIOD_MISMATCH"]
+  },
+  "tolerances": {
+    "money_abs": "0.01",
+    "money_rel": "1e-6",
+    "ratio_abs": "1e-9",
+    "abc_exact": true,
+    "note": "M0 黄金数据冻结校验层；指标层数值随 M1 公式实现后补充"
+  }
+}

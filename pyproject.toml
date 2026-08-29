@@ -1,0 +1,43 @@
+[project]
+name = "warehouse-analyzer"
+version = "0.1.0"
+description = "仓库品类分析决策工具（uv workspace 根项目）"
+requires-python = ">=3.11,<3.12"
+dependencies = [
+    "contracts-python",
+    "warehouse-engine",
+]
+
+# 根项目仅承载工作区与工具链配置，自身不构建为可分发包
+[tool.uv]
+package = false
+
+[tool.uv.workspace]
+members = ["packages/*"]
+# contracts-schema 仅存放生成的 JSON Schema，不是 Python 包，需从成员 glob 中排除
+exclude = ["packages/contracts-schema"]
+
+# 根声明的 sources 对所有 workspace 成员生效
+[tool.uv.sources]
+contracts-python = { workspace = true }
+warehouse-engine = { workspace = true }
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3",
+    "hypothesis>=6.100",
+    "ruff>=0.6",
+    "mypy>=1.11",
+    "jsonschema>=4.26.0",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.mypy]
+python_version = "3.11"
+ignore_missing_imports = true

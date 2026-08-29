@@ -1,0 +1,253 @@
+{
+  "$defs": {
+    "InputSummary": {
+      "description": "输入摘要：结果可追溯与历史重开的依据。",
+      "examples": [
+        {
+          "dataset_digest": "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08",
+          "movement_count": 340,
+          "period_end": "2026-08-31",
+          "period_start": "2026-08-01",
+          "sku_count": 12,
+          "snapshot_count": 12
+        }
+      ],
+      "properties": {
+        "sku_count": {
+          "title": "Sku Count",
+          "type": "integer"
+        },
+        "movement_count": {
+          "title": "Movement Count",
+          "type": "integer"
+        },
+        "snapshot_count": {
+          "title": "Snapshot Count",
+          "type": "integer"
+        },
+        "period_start": {
+          "format": "date",
+          "title": "Period Start",
+          "type": "string"
+        },
+        "period_end": {
+          "format": "date",
+          "title": "Period End",
+          "type": "string"
+        },
+        "dataset_digest": {
+          "title": "Dataset Digest",
+          "type": "string"
+        }
+      },
+      "required": [
+        "sku_count",
+        "movement_count",
+        "snapshot_count",
+        "period_start",
+        "period_end",
+        "dataset_digest"
+      ],
+      "title": "InputSummary",
+      "type": "object"
+    },
+    "ResultMetric": {
+      "description": "结构化指标：携带公式标识与版本，保证结果可追溯。",
+      "examples": [
+        {
+          "formula_id": "kpi.inventory_turnover",
+          "formula_version": "0.1.0",
+          "name": "inventory_turnover",
+          "sample_count": 30,
+          "unit": "次/年",
+          "value": 4.2
+        }
+      ],
+      "properties": {
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "value": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "integer"
+            },
+            {
+              "type": "string"
+            }
+          ],
+          "title": "Value"
+        },
+        "unit": {
+          "title": "Unit",
+          "type": "string"
+        },
+        "formula_id": {
+          "title": "Formula Id",
+          "type": "string"
+        },
+        "formula_version": {
+          "title": "Formula Version",
+          "type": "string"
+        },
+        "sample_count": {
+          "title": "Sample Count",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "name",
+        "value",
+        "unit",
+        "formula_id",
+        "formula_version",
+        "sample_count"
+      ],
+      "title": "ResultMetric",
+      "type": "object"
+    },
+    "Warning": {
+      "description": "结果警告：UI 依据 code 判断行为，中文 message 仅用于展示。",
+      "examples": [
+        {
+          "blocking": false,
+          "code": "PERIOD_MISMATCH",
+          "fields": [
+            "move_date"
+          ],
+          "message": "move_date 超出分析期间",
+          "severity": "WARN"
+        }
+      ],
+      "properties": {
+        "code": {
+          "title": "Code",
+          "type": "string"
+        },
+        "severity": {
+          "$ref": "#/$defs/WarningSeverity"
+        },
+        "message": {
+          "title": "Message",
+          "type": "string"
+        },
+        "fields": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Fields",
+          "type": "array"
+        },
+        "blocking": {
+          "default": false,
+          "title": "Blocking",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "code",
+        "severity",
+        "message"
+      ],
+      "title": "Warning",
+      "type": "object"
+    },
+    "WarningSeverity": {
+      "description": "Warning 严重级别。",
+      "enum": [
+        "INFO",
+        "WARN",
+        "ERROR"
+      ],
+      "title": "WarningSeverity",
+      "type": "string"
+    }
+  },
+  "description": "分析结果：携带版本、期间、指标、警告、摘要与输入摘要。",
+  "examples": [
+    {
+      "engine_version": "0.1.0",
+      "formula_version": "0.1.0",
+      "input_summary": {
+        "dataset_digest": "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08",
+        "movement_count": 2,
+        "period_end": "2026-08-31",
+        "period_start": "2026-08-01",
+        "sku_count": 1,
+        "snapshot_count": 1
+      },
+      "metrics": [],
+      "period_end": "2026-08-31",
+      "period_start": "2026-08-01",
+      "run_id": "run-20260829-0001",
+      "schema_version": "1.0",
+      "summary": "M0 占位结果",
+      "warnings": []
+    }
+  ],
+  "properties": {
+    "schema_version": {
+      "default": "1.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "run_id": {
+      "title": "Run Id",
+      "type": "string"
+    },
+    "engine_version": {
+      "title": "Engine Version",
+      "type": "string"
+    },
+    "formula_version": {
+      "title": "Formula Version",
+      "type": "string"
+    },
+    "period_start": {
+      "format": "date",
+      "title": "Period Start",
+      "type": "string"
+    },
+    "period_end": {
+      "format": "date",
+      "title": "Period End",
+      "type": "string"
+    },
+    "metrics": {
+      "items": {
+        "$ref": "#/$defs/ResultMetric"
+      },
+      "title": "Metrics",
+      "type": "array"
+    },
+    "warnings": {
+      "items": {
+        "$ref": "#/$defs/Warning"
+      },
+      "title": "Warnings",
+      "type": "array"
+    },
+    "summary": {
+      "title": "Summary",
+      "type": "string"
+    },
+    "input_summary": {
+      "$ref": "#/$defs/InputSummary"
+    }
+  },
+  "required": [
+    "run_id",
+    "engine_version",
+    "formula_version",
+    "period_start",
+    "period_end",
+    "summary",
+    "input_summary"
+  ],
+  "title": "AnalysisResult",
+  "type": "object"
+}

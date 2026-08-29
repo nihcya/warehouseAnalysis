@@ -1,0 +1,57 @@
+{
+  "request": {
+    "schema_version": "1.0",
+    "run_id": "run-edge-boundary-dates",
+    "start_date": "2026-06-01",
+    "end_date": "2026-06-30",
+    "warehouse_ids": ["WH-01"],
+    "filters": {},
+    "parameters": {}
+  },
+  "dataset": {
+    "schema_version": "1.0",
+    "skus": [
+      {
+        "sku_id": "SKU-0001",
+        "name": "矿泉水 550ml",
+        "category": "饮料",
+        "unit": "瓶",
+        "unit_cost": "1.20",
+        "currency": "CNY"
+      }
+    ],
+    "movements": [
+      {
+        "event_id": "EVT-0001",
+        "sku_id": "SKU-0001",
+        "move_type": "INBOUND",
+        "quantity": "30",
+        "move_date": "2026-06-01",
+        "occurred_at": "2026-06-01T08:00:00Z",
+        "warehouse_id": "WH-01",
+        "unit_cost": "1.20",
+        "source": "IMPORT"
+      },
+      {
+        "event_id": "EVT-0002",
+        "sku_id": "SKU-0001",
+        "move_type": "OUTBOUND",
+        "quantity": "6",
+        "move_date": "2026-06-30",
+        "occurred_at": "2026-06-30T10:00:00Z",
+        "warehouse_id": "WH-01",
+        "source": "IMPORT"
+      }
+    ],
+    "snapshots": [
+      {
+        "sku_id": "SKU-0001",
+        "snapshot_date": "2026-06-30",
+        "quantity": "24",
+        "warehouse_id": "WH-01",
+        "inventory_value": "28.80"
+      }
+    ],
+    "replenishment": []
+  }
+}

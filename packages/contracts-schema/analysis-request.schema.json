@@ -1,0 +1,68 @@
+{
+  "description": "分析请求：数据期间、仓库范围、筛选条件与计算参数。",
+  "examples": [
+    {
+      "end_date": "2026-08-31",
+      "filters": {
+        "categories": [
+          "饮料"
+        ]
+      },
+      "parameters": {
+        "service_level": "0.95"
+      },
+      "run_id": "run-20260829-0001",
+      "schema_version": "1.0",
+      "start_date": "2026-08-01",
+      "warehouse_ids": [
+        "WH-01"
+      ]
+    }
+  ],
+  "properties": {
+    "schema_version": {
+      "default": "1.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "run_id": {
+      "title": "Run Id",
+      "type": "string"
+    },
+    "start_date": {
+      "format": "date",
+      "title": "Start Date",
+      "type": "string"
+    },
+    "end_date": {
+      "format": "date",
+      "title": "End Date",
+      "type": "string"
+    },
+    "warehouse_ids": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Warehouse Ids",
+      "type": "array"
+    },
+    "filters": {
+      "additionalProperties": true,
+      "title": "Filters",
+      "type": "object"
+    },
+    "parameters": {
+      "additionalProperties": true,
+      "title": "Parameters",
+      "type": "object"
+    }
+  },
+  "required": [
+    "run_id",
+    "start_date",
+    "end_date",
+    "warehouse_ids"
+  ],
+  "title": "AnalysisRequest",
+  "type": "object"
+}

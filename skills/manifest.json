@@ -1,0 +1,61 @@
+{
+  "manifest_version": "1.0",
+  "generation_note": "本清单由开发者 B 于 M0（2026-08-29）生成并维护，列出仓库品类分析决策工具的五个 Skill。status=skeleton 表示 M0 骨架（公式未冻结），仅定义编排、契约引用与参数占位，不代表可发布实现。路径相对本文件所在目录 skills/（Schema 引用为 ../packages/contracts-schema/ 下由并行任务交付的文件）。Skill 只编排参数校验、计算顺序与结果组合，不执行 Shell、不访问用户文件、不下载代码。",
+  "skills": [
+    {
+      "name": "kpi",
+      "version": "0.1.0",
+      "status": "skeleton",
+      "engine_version_range": ">=0.1.0,<0.2.0",
+      "formula_version": "0.1.0",
+      "input_schema": "../packages/contracts-schema/analysis-request.schema.json",
+      "output_schema": "../packages/contracts-schema/analysis-result.schema.json",
+      "capabilities": "核心库存 KPI：出货率、出货速度、周转率、周转天数、COGS、库存价值、动销/缺货/覆盖天数",
+      "path": "kpi"
+    },
+    {
+      "name": "abc-aging",
+      "version": "0.1.0",
+      "status": "skeleton",
+      "engine_version_range": ">=0.1.0,<0.2.0",
+      "formula_version": "0.1.0",
+      "input_schema": "../packages/contracts-schema/analysis-request.schema.json",
+      "output_schema": "../packages/contracts-schema/analysis-result.schema.json",
+      "capabilities": "ABC 价值分层、库龄区间分布（左闭右开）与呆滞库存识别",
+      "path": "abc-aging"
+    },
+    {
+      "name": "replenishment",
+      "version": "0.1.0",
+      "status": "skeleton",
+      "engine_version_range": ">=0.1.0,<0.2.0",
+      "formula_version": "0.1.0",
+      "input_schema": "../packages/contracts-schema/analysis-request.schema.json",
+      "output_schema": "../packages/contracts-schema/analysis-result.schema.json",
+      "capabilities": "安全库存（SS）、补货点（ROP）、建议补货量与 EOQ 补货建议",
+      "path": "replenishment"
+    },
+    {
+      "name": "forecasting",
+      "version": "0.1.0",
+      "status": "skeleton",
+      "engine_version_range": ">=0.1.0,<0.2.0",
+      "formula_version": "0.1.0",
+      "input_schema": "../packages/contracts-schema/analysis-request.schema.json",
+      "output_schema": "../packages/contracts-schema/analysis-result.schema.json",
+      "capabilities": "需求预测（移动平均基线）与 MAPE/MAE/RMSE 误差评估，样本不足降级",
+      "path": "forecasting"
+    },
+    {
+      "name": "benchmark",
+      "version": "0.1.0",
+      "status": "skeleton",
+      "engine_version_range": ">=0.1.0,<0.2.0",
+      "formula_version": "0.1.0",
+      "input_schema": "../packages/contracts-schema/analysis-request.schema.json",
+      "output_schema": "../packages/contracts-schema/analysis-result.schema.json",
+      "capabilities": "行业基准匹配、偏离度计算与异常标记；无匹配基准返回 BENCHMARK_UNAVAILABLE",
+      "path": "benchmark"
+    }
+  ]
+}

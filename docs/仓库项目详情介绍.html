@@ -1,0 +1,323 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="仓库品类分析决策工具详细项目概述：从库存数据、采购难题到本地优先的分析与调度解决方案。">
+  <title>仓库项目详情介绍 | 仓库品类分析决策工具</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #142033;
+      --muted: #58677b;
+      --soft: #748197;
+      --line: #d8e1ea;
+      --canvas: #f3f6f9;
+      --panel: #ffffff;
+      --navy: #173b5f;
+      --navy-2: #24567f;
+      --teal: #0d766e;
+      --teal-soft: #e7f3f1;
+      --amber: #a55a05;
+      --amber-soft: #fff3df;
+      --red: #b42318;
+      --red-soft: #fcebea;
+      --blue-soft: #eaf1f8;
+      --shadow: 0 8px 24px rgba(20, 32, 51, .06);
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      color: var(--ink);
+      background: var(--canvas);
+      font: 16px/1.75 system-ui, -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif;
+    }
+    a { color: var(--navy-2); }
+    .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      background: var(--navy);
+      color: #fff;
+      border-bottom: 1px solid rgba(255, 255, 255, .18);
+    }
+    .topbar-inner, main, footer { max-width: 1180px; margin: 0 auto; }
+    .topbar-inner {
+      min-height: 64px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 24px;
+      padding: 0 24px;
+    }
+    .brand { font-weight: 760; letter-spacing: .02em; }
+    .topbar a { color: #dcecf6; text-decoration: none; font-size: .92rem; }
+    .topbar nav { display: flex; flex-wrap: wrap; gap: 16px; }
+    main { padding: 54px 24px 84px; }
+    .hero { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(280px, .8fr); gap: 28px; align-items: stretch; }
+    .hero-copy, .hero-panel, .section-band, .card, .flow-step, .data-table, .faq-item { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; }
+    .hero-copy { padding: clamp(28px, 5vw, 58px); box-shadow: var(--shadow); }
+    .eyebrow { margin: 0 0 12px; color: var(--teal); font-weight: 700; letter-spacing: .08em; font-size: .82rem; }
+    h1, h2, h3 { margin-top: 0; line-height: 1.25; }
+    h1 { margin-bottom: 18px; font-size: clamp(2.1rem, 5vw, 4.1rem); letter-spacing: -.02em; }
+    h2 { margin-bottom: 12px; font-size: clamp(1.55rem, 3vw, 2.1rem); }
+    h3 { margin-bottom: 8px; font-size: 1.08rem; }
+    p { margin: 0 0 14px; }
+    .lead { max-width: 720px; color: var(--muted); font-size: 1.16rem; }
+    .hero-panel { padding: 24px; display: flex; flex-direction: column; justify-content: space-between; }
+    .hero-panel h2 { font-size: 1.35rem; }
+    .signal { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 16px; }
+    .signal div { padding: 13px; border: 1px solid var(--line); border-radius: 6px; background: #fbfcfd; }
+    .signal strong { display: block; font-size: 1.35rem; color: var(--navy); }
+    .signal span { color: var(--muted); font-size: .88rem; }
+    .notice { margin-top: 22px; padding: 16px 18px; border-left: 4px solid var(--teal); background: var(--teal-soft); }
+    section { margin-top: 58px; }
+    .section-heading { max-width: 800px; margin-bottom: 22px; }
+    .section-heading p { color: var(--muted); }
+    .grid-2, .grid-3, .grid-4 { display: grid; gap: 16px; }
+    .grid-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .grid-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .grid-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+    .card { padding: 22px; }
+    .card p, .card li, td { color: var(--muted); }
+    .card ul { margin: 10px 0 0; padding-left: 20px; }
+    li + li { margin-top: 6px; }
+    .number { display: inline-grid; place-items: center; width: 28px; height: 28px; margin-bottom: 13px; border-radius: 50%; color: #fff; background: var(--navy); font-weight: 700; }
+    .problem { border-top: 4px solid var(--red); }
+    .problem .number { background: var(--red); }
+    .solution { border-top: 4px solid var(--teal); }
+    .solution .number { background: var(--teal); }
+    .customer-quote { padding: 23px 25px; border: 1px solid var(--line); border-left: 5px solid var(--amber); background: var(--amber-soft); color: #613800; }
+    .architecture { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; align-items: stretch; }
+    .arch-node { position: relative; padding: 17px 14px; min-height: 142px; background: var(--panel); border: 1px solid var(--line); border-top: 4px solid var(--navy); border-radius: 6px; }
+    .arch-node + .arch-node::before { content: "→"; position: absolute; left: -16px; top: 51px; color: var(--soft); font-size: 1.25rem; }
+    .arch-node strong { display: block; margin-bottom: 6px; }
+    .arch-node span { display: block; color: var(--muted); font-size: .9rem; }
+    .local { border-top-color: var(--teal); }
+    .cloud { border-top-color: var(--navy-2); }
+    .future { border-top-color: var(--amber); }
+    .flow { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+    .flow-step { position: relative; padding: 18px; min-height: 156px; }
+    .flow-step:not(:last-child)::after { content: ""; position: absolute; right: -14px; top: 70px; z-index: 1; color: var(--soft); font-size: 1.2rem; }
+    .flow-step b { color: var(--teal); font-size: .86rem; letter-spacing: .06em; }
+    .flow-step p { color: var(--muted); font-size: .93rem; }
+    .data-table { overflow-x: auto; box-shadow: var(--shadow); }
+    table { width: 100%; min-width: 720px; border-collapse: collapse; }
+    th, td { padding: 14px 16px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
+    th { background: var(--blue-soft); color: var(--ink); font-weight: 700; }
+    tr:last-child td { border-bottom: 0; }
+    .pill { display: inline-block; margin-right: 5px; padding: 2px 8px; border-radius: 4px; font-size: .8rem; font-weight: 700; }
+    .pill.local { color: #075e58; background: var(--teal-soft); }
+    .pill.cloud { color: #1d4f75; background: var(--blue-soft); }
+    .pill.future { color: #754000; background: var(--amber-soft); }
+    .band { padding: 25px; background: var(--navy); color: #fff; border-radius: 8px; }
+    .band p, .band li { color: #dcecf6; }
+    .band h2 { color: #fff; }
+    .stack { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+    .stack .card { background: #fbfcfd; }
+    code { padding: 1px 5px; color: var(--navy); background: #edf1f5; border-radius: 3px; font-size: .92em; }
+    .faq { display: grid; gap: 10px; }
+    .faq-item { padding: 18px 21px; }
+    .faq-item summary { cursor: pointer; font-weight: 700; }
+    .faq-item p { margin: 12px 0 0; color: var(--muted); }
+    footer { padding: 0 24px 38px; color: var(--muted); font-size: .9rem; }
+    .footer-line { padding-top: 18px; border-top: 1px solid var(--line); }
+    @media (max-width: 900px) {
+      .hero { grid-template-columns: 1fr; }
+      .grid-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .architecture { grid-template-columns: 1fr; }
+      .arch-node + .arch-node::before { content: "↓"; left: 50%; top: -20px; }
+    }
+    @media (max-width: 680px) {
+      .topbar-inner { align-items: flex-start; flex-direction: column; gap: 4px; padding: 12px 18px; }
+      .topbar nav { gap: 10px; }
+      main { padding: 32px 18px 58px; }
+      .grid-2, .grid-3, .grid-4, .flow, .stack { grid-template-columns: 1fr; }
+      .hero-copy { padding: 28px 22px; }
+      .signal { grid-template-columns: 1fr 1fr; }
+      section { margin-top: 42px; }
+    }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <div class="brand">仓库品类分析决策工具</div>
+      <nav aria-label="页面导航">
+        <a href="#background">项目背景</a>
+        <a href="#solution">解决方案</a>
+        <a href="#architecture">架构与数据</a>
+        <a href="#delivery">交付与边界</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <div class="hero">
+      <div class="hero-copy">
+        <p class="eyebrow">PROJECT OVERVIEW · V1.0</p>
+        <h1>让仓库数据变成每天能执行的决定</h1>
+        <p class="lead">仓库品类分析决策工具是一套本地优先的库存分析与调度工作台。它把商户已有的 Excel、CSV 和业务流水，整理成可追溯的动销、库存、库龄、积压和补货信息，并在客户自己的电脑上完成核心处理。</p>
+        <div class="notice"><strong>一句话理解：</strong>云端负责账号、授权、配置和运行状态；商户的货品、库存、成本、采购和分析明细主要留在本地。</div>
+      </div>
+      <aside class="hero-panel" aria-label="项目摘要">
+        <div>
+          <h2>这不是普通的云端库存 SaaS</h2>
+          <p>它更像“本地业务工作台 + 云端控制台”：客户断网时仍能完成核心工作，联网后同步授权、配置、任务状态和必要的脱敏技术信息。</p>
+        </div>
+        <div class="signal">
+          <div><strong>本地优先</strong><span>业务明细留在商户电脑</span></div>
+          <div><strong>可追溯</strong><span>数据期间与公式版本可查</span></div>
+          <div><strong>可恢复</strong><span>备份、导出和迁移可验证</span></div>
+          <div><strong>可扩展</strong><span>未来接入扫码和多行业</span></div>
+        </div>
+      </aside>
+    </div>
+
+    <section id="background">
+      <div class="section-heading">
+        <h2>一、项目背景：仓库最难的不是记账</h2>
+        <p>很多商户已经有进销存软件、Excel 或收银系统，真正困难的是数据分散、口径不一，最后仍然只能凭经验决定采购和库存处理。</p>
+      </div>
+      <div class="grid-3">
+        <article class="card problem"><span class="number">1</span><h3>数据分散，无法形成统一判断</h3><p>货品资料、出入库流水、采购价格和盘点结果来自不同文件。字段名称、单位、时间范围不一致，管理者很难快速确认哪一份数据可信。</p></article>
+        <article class="card problem"><span class="number">2</span><h3>库存看得见，问题排不出来</h3><p>库存总量并不等于经营健康。真正需要知道的是哪些品类动销快、哪些已经积压、哪些临近缺货，以及问题发生在哪个周期。</p></article>
+        <article class="card problem"><span class="number">3</span><h3>采购依靠经验，缺少可解释依据</h3><p>只看历史销量会忽略提前期、安全库存、在途量和季节变化。采购建议如果不能解释来源，客户也不敢真正采用。</p></article>
+        <article class="card problem"><span class="number">4</span><h3>网络和隐私成为现实阻力</h3><p>商户不愿把成本、采购价、供应商和完整流水放入第三方云端；仓库现场网络也可能不稳定，不能让核心工作依赖在线状态。</p></article>
+        <article class="card problem"><span class="number">5</span><h3>结果做出来了，却没有持续执行</h3><p>一次性分析报告很快过期。没有定时任务、异常提示和运行状态，团队仍然要手工重复整理数据。</p></article>
+        <article class="card problem"><span class="number">6</span><h3>移动录入方便，直接连本地又不安全</h3><p>扫码录入适合仓库现场，但微信小程序不能直接访问商户电脑数据库，需要经过受控、可过期、可追踪的同步中继。</p></article>
+      </div>
+      <div class="customer-quote" style="margin-top: 18px;"><strong>客户真正想要的不是更多图表：</strong>客户需要的是“数据不会丢、结果看得懂、建议有依据、断网能工作、出问题有人能定位”。</div>
+    </section>
+
+    <section id="solution">
+      <div class="section-heading">
+        <h2>二、我们如何解决：把复杂问题拆成四条主线</h2>
+        <p>第一版先解决稳定、可解释、可恢复的本地闭环，再逐步开放移动采集和更复杂的协同能力。</p>
+      </div>
+      <div class="grid-2">
+        <article class="card solution"><span class="number">A</span><h3>先统一数据，再进行分析</h3><p>通过导入向导完成字段映射、单位换算、日期校验和重复提示。错误按文件行号、字段和错误码定位，避免用户反复试错。</p><ul><li>保留原始导入批次和错误记录</li><li>库存事件追加记录，不静默覆盖历史</li><li>余额由事件投影，可重建和核对</li></ul></article>
+        <article class="card solution"><span class="number">B</span><h3>把指标变成可解释的采购依据</h3><p>核心引擎计算动销、周转、ABC、库龄、呆滞、补货和预测，并在每个结果中保存数据期间、单位、公式版本、输入摘要和警告。</p><ul><li>数据不足时明确提示，不伪造精确结论</li><li>建议量展示安全库存、提前期和在途量</li><li>同一输入和版本得到可重复结果</li></ul></article>
+        <article class="card solution"><span class="number">C</span><h3>本地完成业务，云端只做控制</h3><p>商户完整业务库放在本地 SQLite；云端 PostgreSQL 只保存账号、许可证、设备、配置、任务、心跳、脱敏日志和临时加密信封。</p><ul><li>断网仍可导入、分析、报告和备份</li><li>联网后同步配置、授权和状态</li><li>不默认建立云端完整 SKU 和库存明细表</li></ul></article>
+        <article class="card solution"><span class="number">D</span><h3>让运行过程持续可见、可恢复</h3><p>托盘 Agent 负责后台心跳、任务、配置和同步。Web 端显示工作台是否在线、任务是否成功和是否有同步积压；升级前自动备份。</p><ul><li>配置和版本支持签名、灰度和回滚</li><li>失败任务保留错误码和 request_id</li><li>诊断包默认脱敏，客户确认后再上传</li></ul></article>
+      </div>
+    </section>
+
+    <section id="architecture">
+      <div class="section-heading">
+        <h2>三、产品由哪些部分组成</h2>
+        <p>各端职责明确，避免把业务数据、管理能力和移动采集混在一起。</p>
+      </div>
+      <div class="architecture">
+        <div class="arch-node cloud"><strong>官网与下载中心</strong><span>产品介绍、安装包、校验值、版本说明、操作文档、隐私和支持入口。</span></div>
+        <div class="arch-node cloud"><strong>商户 Web 管理端</strong><span>账号、许可证、设备在线状态、任务状态、小程序绑定和同步积压。</span></div>
+        <div class="arch-node cloud"><strong>开发者管理模式</strong><span>统一管理商户、产品类型、配置、Skill、版本、日志和技术支持授权。</span></div>
+        <div class="arch-node local"><strong>本地 Windows 工作台</strong><span>导入、库存、分析、调度、报告、备份和恢复，核心业务不依赖网络。</span></div>
+        <div class="arch-node future"><strong>微信小程序预留</strong><span>未来负责扫码入库、出库、盘点和采购录入，本期只做接口、Schema 和 Mock。</span></div>
+      </div>
+    </section>
+
+    <section>
+      <div class="section-heading"><h2>四、客户使用流程</h2><p>从下载安装到日常使用，客户不需要自行安装 Python、数据库或复杂运行环境。</p></div>
+      <div class="flow">
+        <article class="flow-step"><b>01 · 下载</b><h3>选择行业安装包</h3><p>从官网选择零售、批发等产品类型，下载带签名和 SHA-256 校验值的 Windows 安装包。</p></article>
+        <article class="flow-step"><b>02 · 登录</b><h3>注册商户账号</h3><p>登录工作台，注册设备并获取许可证、产品配置和离线宽限期。</p></article>
+        <article class="flow-step"><b>03 · 导入</b><h3>整理历史数据</h3><p>导入 Excel/CSV，完成字段映射、错误修复和库存事件校验。</p></article>
+        <article class="flow-step"><b>04 · 分析</b><h3>生成经营结果</h3><p>在本地执行指标、分类、库龄、补货和预测，生成可导出的报告。</p></article>
+        <article class="flow-step"><b>05 · 调度</b><h3>按计划自动运行</h3><p>托盘 Agent 在后台执行任务，窗口关闭后仍可运行，并记录成功或失败状态。</p></article>
+        <article class="flow-step"><b>06 · 查看</b><h3>Web 端看运行状态</h3><p>商户查看设备在线、最后心跳、任务状态、版本和同步积压，不直接暴露完整业务明细。</p></article>
+        <article class="flow-step"><b>07 · 采集</b><h3>未来接入扫码</h3><p>小程序登录并绑定工作台，提交事件到临时加密中继，不能直接访问本地数据库。</p></article>
+        <article class="flow-step"><b>08 · 保护</b><h3>备份与恢复</h3><p>升级和重要操作前自动备份；恢复到临时库校验通过后再切换，失败不覆盖当前数据。</p></article>
+      </div>
+    </section>
+
+    <section>
+      <div class="section-heading"><h2>五、数据放在哪里</h2><p>本项目最重要的产品承诺是数据边界清楚。云端能看到运行是否正常，但默认看不到商户完整库存明细。</p></div>
+      <div class="data-table">
+        <table>
+          <thead><tr><th>位置</th><th>保存内容</th><th>默认行为</th><th>客户可感知的价值</th></tr></thead>
+          <tbody>
+            <tr><td><span class="pill local">商户电脑</span><br>SQLite 本地业务库</td><td>SKU、条码、仓库、库存事件、成本、采购、批次、分析结果、报告和完整业务审计。</td><td>本地保存、断网可用；数据库和备份放在用户数据目录，不放安装目录。</td><td>隐私边界清楚，网络中断时核心工作不中断。</td></tr>
+            <tr><td><span class="pill cloud">开发者平台</span><br>PostgreSQL 控制库</td><td>账号、许可证、设备、产品类型、配置、版本、任务、心跳、同步状态和脱敏技术日志。</td><td>不默认保存完整 SKU、库存数量、成本、采购价格和业务报告。</td><td>统一授权、版本和技术支持，多端状态可见。</td></tr>
+            <tr><td><span class="pill future">临时中继</span><br>加密同步信封</td><td>小程序事件的密文、事件编号、目标设备、状态和过期时间。</td><td>短期保存；工作台确认后删除原始密文，失败只保留状态和错误码。</td><td>兼顾扫码便利与本地数据边界。</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section>
+      <div class="band">
+        <h2>六、前后端如何连接</h2>
+        <p>前后端分离不是把所有数据都搬到云端，而是把职责拆开：</p>
+        <ul>
+          <li>Web 前端只通过 FastAPI `/api/v1` 和生成的 OpenAPI Client 访问云端。</li>
+          <li>工作台 UI 只调用本地 Application Service，不直接拼 SQL、不直接调用 HTTP。</li>
+          <li>托盘 Agent 负责心跳、配置、任务和同步；核心引擎只接收标准化数据对象。</li>
+          <li>所有跨端请求带版本、租户、设备、request_id 和幂等键，失败可定位、重复可安全重试。</li>
+        </ul>
+      </div>
+    </section>
+
+    <section>
+      <div class="section-heading"><h2>七、第一版技术与界面方向</h2><p>第一版优先服务仓库管理者和采购负责人，追求长时间使用时的清晰与稳定，而不是营销式视觉。</p></div>
+      <div class="stack">
+        <article class="card"><h3>桌面工作台</h3><p><code>Python 3.11</code>、<code>PySide6</code>、<code>SQLite</code>、<code>SQLAlchemy 2</code>、<code>Alembic</code>、<code>pandas</code>、<code>numpy</code>。</p><p>左侧导航、顶部网络/授权/同步状态、中心表格与筛选，导入使用分步向导。</p></article>
+        <article class="card"><h3>云端控制平面</h3><p><code>FastAPI</code>、<code>Pydantic 2</code>、<code>PostgreSQL</code>、<code>Docker Compose</code>、<code>Caddy HTTPS</code>。</p><p>通过 SSE 推送状态，30 秒轮询作为断线降级；第一版不预先引入 Redis 和消息队列。</p></article>
+        <article class="card"><h3>Web 与发布</h3><p><code>Next.js</code>、<code>React</code>、<code>TypeScript</code>、<code>Ant Design</code>、<code>TanStack Query</code>、<code>Playwright</code>。</p><p>统一官网、商户端和开发者端，后端 Scope 决定权限，界面切换按钮不能代替权限。</p></article>
+      </div>
+      <div class="grid-2" style="margin-top: 16px;">
+        <article class="card"><h3>UI 设计关键词</h3><ul><li>仓库运营控制台：克制、清晰、可扫描</li><li>深蓝导航、青绿成功、琥珀警告、红色错误</li><li>表格、筛选、状态、错误定位优先</li><li>不使用大面积渐变、模糊背景或装饰性大卡片</li></ul></article>
+        <article class="card"><h3>客户能看到的状态</h3><ul><li>本地可用 / 云端待同步</li><li>任务运行中 / 成功 / 失败 / 错过</li><li>设备在线 / 降级 / 离线 / 已撤销</li><li>配置和版本是否已确认生效</li></ul></article>
+      </div>
+    </section>
+
+    <section id="delivery">
+      <div class="section-heading"><h2>八、第一版交付什么，暂时不做什么</h2><p>明确范围是为了保证第一版真的能交付，而不是把所有未来设想都变成不稳定的承诺。</p></div>
+      <div class="grid-2">
+        <article class="card solution"><h3>第一版交付</h3><ul><li>Windows 可安装工作台，无需客户单独安装 Python 或数据库</li><li>本地导入、库存事件、分析、报告、备份、恢复和导出</li><li>账号、设备、许可证、配置、任务和运行状态管理</li><li>开发者管理模式、版本发布、灰度和诊断支持</li><li>小程序接口、Schema、Mock 和同步集成验证</li><li>安装、升级、回滚、断网和数据恢复测试记录</li></ul></article>
+        <article class="card problem"><h3>第一版明确不做</h3><ul><li>微信小程序页面开发、审核和正式发布</li><li>商户员工邀请和复杂组织权限</li><li>多主工作台的实时双向合并</li><li>云端完整库存业务库和默认云端业务备份</li><li>动态下载并执行任意 Skill 脚本</li><li>在缺少真实数据时承诺采购建议一定被采用</li></ul></article>
+      </div>
+    </section>
+
+    <section>
+      <div class="section-heading"><h2>九、两位开发者如何保证可以接上</h2><p>平台与引擎通过公共契约协作，而不是互相引用内部代码。</p></div>
+      <div class="grid-2">
+        <article class="card"><h3>平台与工作台负责人</h3><p>负责官网、商户 Web、开发者模式、FastAPI、SQLite、导入、备份、托盘 Agent、同步、打包和发布。</p><p>验收重点：客户能安装，数据能导入，分析能展示，状态能同步，升级失败能恢复。</p></article>
+        <article class="card"><h3>引擎与 Skill 负责人</h3><p>负责数据标准化、KPI、ABC、库龄、补货、预测、行业基准、Skill、黄金数据和性能评测。</p><p>验收重点：相同输入可重复，公式可追溯，异常有 Warning，wheel 可独立安装。</p></article>
+      </div>
+      <div class="notice" style="margin-top: 16px;"><strong>共同规则：</strong>接口使用版本化 JSON Schema/OpenAPI；A 先用 FakeEngine 开发页面，B 提供真实 engine wheel；任何字段、单位、公式或状态变化，都必须带 Schema、测试和兼容说明。</div>
+    </section>
+
+    <section>
+      <div class="section-heading"><h2>十、客户最关心的问题</h2></div>
+      <div class="faq">
+        <details class="faq-item"><summary>断网后还能不能使用？</summary><p>可以。导入、查看本地数据、运行分析、生成报告、备份和导出属于本地能力。账号状态、配置、任务状态和小程序事件同步需要网络，恢复网络后再处理。</p></details>
+        <details class="faq-item"><summary>开发者能不能看到我的库存和采购价格？</summary><p>默认不能。云端只保存控制面数据和脱敏技术日志。小程序事件如果必须经过云端，只以短期加密信封中继，工作台确认后按策略删除密文。</p></details>
+        <details class="faq-item"><summary>如果升级失败，数据会不会丢？</summary><p>升级前自动备份，迁移在校验通过后切换；失败时进入安全模式并保留当前有效数据库，不通过删除数据库重新初始化来“解决”。</p></details>
+        <details class="faq-item"><summary>第一版可以直接用微信扫码吗？</summary><p>第一版只完成接口、Schema、Mock 和同步协议验证，不开发小程序页面和微信发布流程。正式扫码能力会在协议稳定、隐私和微信合规材料完成后开放。</p></details>
+        <details class="faq-item"><summary>分析结果是不是一定正确？</summary><p>结果会记录数据期间、公式版本、引擎版本、输入摘要和警告。指标必须通过黄金数据和边界测试；数据不足或口径未确认时会明确提示，不把不确定性隐藏掉。</p></details>
+      </div>
+    </section>
+
+    <section>
+      <div class="band">
+        <h2>十一、项目当前阶段</h2>
+        <p>项目已完成开发前架构梳理，正在进入 M0 冻结阶段。正式编码前需要共同确认：</p>
+        <ul>
+          <li>公共 contracts、OpenAPI、错误码、单位和金额精度。</li>
+          <li>本地/云端 ER 图文件、Alembic 初始迁移、数据字典和备份策略。</li>
+          <li>核心指标公式、黄金数据、UI 线框和环境启动脚本。</li>
+          <li>隐私边界、同步信封 TTL、配置签名、离线宽限期和回滚方案。</li>
+        </ul>
+        <p><strong>生产发布条件：</strong>安装、升级、恢复、安全扫描、试点反馈、监控告警和发布审批全部归档后，才进入正式发布。</p>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="footer-line">文档版本 V1.0 · 本页面用于项目介绍、客户沟通和团队理解，不包含商户业务数据，也不替代开发基线、API 文档或数据库迁移。</div>
+  </footer>
+</body>
+</html>

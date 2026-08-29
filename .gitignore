@@ -1,0 +1,38 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+.venv/
+
+# 工具缓存
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+.hypothesis/
+
+# 环境与密钥（任何环境不得提交真实凭证）
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# 本地数据库与备份（商户业务数据不入库）
+*.db
+*.sqlite3
+backups/
+
+# IDE / 系统
+.idea/
+.vscode/
+Thumbs.db
+.DS_Store
+
+# Node（A 侧 Web 应用后续使用）
+node_modules/
+.next/
+
+# 性能基准输出（M0 为 stdout，后续落盘时也不入库）
+benchmark-out/
