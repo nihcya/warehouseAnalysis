@@ -98,7 +98,10 @@ def verify_local_sqlite() -> None:
                     f"alembic_version = {version!r}（期望 {LOCAL_HEAD!r}）",
                 )
 
-                meta = dict(conn.execute(text("SELECT key, value FROM local_meta")).all())
+                meta: dict[str, str] = {
+                    row[0]: row[1]
+                    for row in conn.execute(text("SELECT key, value FROM local_meta"))
+                }
                 check(
                     meta.get("db_schema_version") == "local-0002",
                     "local_meta 种子 db_schema_version = local-0002",
@@ -306,11 +309,12 @@ def verify_control_postgres() -> None:
                 f"alembic_version = {version!r}（期望 {CONTROL_HEAD!r}）",
             )
 
-            meta = dict(
-                connection.execute(
+            meta: dict[str, str] = {
+                row[0]: row[1]
+                for row in connection.execute(
                     text(f'SELECT key, value FROM "{schema}".control_meta')
-                ).all()
-            )
+                )
+            }
             check(
                 meta.get("db_schema_version") == "control-0001",
                 "control_meta 种子 db_schema_version = control-0001",
