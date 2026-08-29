@@ -1,0 +1,88 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "packages/contracts-schema/sync-envelope.schema.json",
+  "title": "SyncEnvelope",
+  "description": "小程序同步信封：云端下发至工作台的加密事件信封，字段对齐主基线 §21.6。云端只校验商户、目标设备、大小、时间和幂等键，不解密业务内容；工作台解密后本地校验 sku_id、数量、仓库、库位和批次。注意：created_at < expires_at 属于应用层校验（draft 2020-12 无法表达跨字段比较），由 tests/contract/test_sync_envelope.py 中的 validate_envelope_timing 覆盖。",
+  "type": "object",
+  "properties": {
+    "event_id": {
+      "title": "Event Id",
+      "description": "事件唯一标识：evt_ 前缀 + 字母/数字/下划线/连字符。",
+      "type": "string",
+      "pattern": "^evt_[0-9A-Za-z_-]+$"
+    },
+    "merchant_id": {
+      "title": "Merchant Id",
+      "description": "商户标识：mch_ 前缀 + 字母/数字/下划线/连字符。",
+      "type": "string",
+      "pattern": "^mch_[0-9A-Za-z_-]+$"
+    },
+    "target_device_id": {
+      "title": "Target Device Id",
+      "description": "目标工作台设备标识：dev_ 前缀 + 字母/数字/下划线/连字符。",
+      "type": "string",
+      "pattern": "^dev_[0-9A-Za-z_-]+$"
+    },
+    "idempotency_key": {
+      "title": "Idempotency Key",
+      "description": "幂等键：8-128 位字母/数字/下划线/连字符，用于云端去重。",
+      "type": "string",
+      "pattern": "^[0-9A-Za-z_-]{8,128}$"
+    },
+    "algorithm": {
+      "title": "Algorithm",
+      "description": "加密算法，固定为 AES-256-GCM。",
+      "type": "string",
+      "const": "AES-256-GCM"
+    },
+    "nonce": {
+      "title": "Nonce",
+      "description": "AES-GCM 随机数，base64url 编码（仅字母/数字/下划线/连字符），不允许为空。",
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_-]+$"
+    },
+    "ciphertext": {
+      "title": "Ciphertext",
+      "description": "加密后的业务载荷，base64url 编码（仅字母/数字/下划线/连字符），不允许为空。",
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_-]+$"
+    },
+    "created_at": {
+      "title": "Created At",
+      "description": "信封创建时间（UTC，ISO 8601 / RFC 3339 date-time）。",
+      "type": "string",
+      "format": "date-time"
+    },
+    "expires_at": {
+      "title": "Expires At",
+      "description": "信封过期时间（UTC，ISO 8601 / RFC 3339 date-time）；必须晚于 created_at，该时间顺序约束属于应用层校验。",
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "required": [
+    "event_id",
+    "merchant_id",
+    "target_device_id",
+    "idempotency_key",
+    "algorithm",
+    "nonce",
+    "ciphertext",
+    "created_at",
+    "expires_at"
+  ],
+  "additionalProperties": false,
+  "examples": [
+    {
+      "event_id": "evt_01J8Z6T9KQ3M5V7WX",
+      "merchant_id": "mch_01J8Z6T9KQ3M5V7WX",
+      "target_device_id": "dev_01J8Z6T9KQ3M5V7WX",
+      "idempotency_key": "wx_req_20260901_0001",
+      "algorithm": "AES-256-GCM",
+      "nonce": "Q5w8e2r9tY1uI3oP5u7A",
+      "ciphertext": "kJ8n7m6Q5z4X3c2V1b0Na9s8d7f6g5h4j3k2l1z6x",
+      "created_at": "2026-09-01T08:01:00Z",
+      "expires_at": "2026-09-01T08:31:00Z"
+    }
+  ]
+}

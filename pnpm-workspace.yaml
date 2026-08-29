@@ -1,0 +1,10 @@
+packages:
+  - "apps/*"
+
+allowBuilds:
+  unrs-resolver: set this to true or false
+
+# pnpm 10+ 默认拦截依赖的安装期脚本；显式放行如下依赖
+# unrs-resolver：@eslint/eslintrc 解析链所需的原生绑定（postinstall 安装 prebuilt 二进制）
+onlyBuiltDependencies:
+  - "unrs-resolver"
