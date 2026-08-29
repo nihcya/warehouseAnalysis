@@ -1,4 +1,4 @@
-"""verify_schema.py：M0 迁移结构验证（评审报告 §3.3 建库完成证据 / §8 P0-1）。
+"""verify_schema.py：M0+M1 迁移结构验证（评审报告 §3.3 建库完成证据 / §8 P0-1）。
 
 对两库执行 ``alembic upgrade head`` 后的迁移结果做机器检查：
 
@@ -6,6 +6,11 @@
   ``alembic_version`` 值、local_meta 种子、关键约束（``analysis_run.run_id``
   UNIQUE、``analysis_result`` 复合索引与外键、主键、NOT NULL）与约束实际生效
   （重复 run_id / 孤儿 run_id 插入被拒）；
+  M1 扩展（0003-0006）：17 张新表存在性（主数据 7 / 事件 6 / 导入 2 /
+  报告备份 2）、关键约束（``sku.sku_id`` UNIQUE、``inventory_event.event_id``
+  UNIQUE 与 ``quantity > 0`` CHECK、快照五元组 UNIQUE、
+  ``report_artifact (run_id, format)`` UNIQUE、``backup_record`` 枚举 CHECK）
+  与约束实际生效（重复/非法插入被拒）；
 - 云端控制库（PostgreSQL）：连接探测（``CONTROL_PLANE_TEST_DATABASE_URL``
   或应用配置 ``DATABASE_URL``）→ 在临时 schema 内 upgrade head → 检查表存在性、
   ``alembic_version``、control_meta/control_enum 种子与 ``code`` UNIQUE →
@@ -33,13 +38,62 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 LOCAL_DATA_ROOT = REPO_ROOT / "local-data"
 CONTROL_PLANE_ROOT = REPO_ROOT / "services" / "control-plane"
 
-#: 本地库 upgrade head 后应存在的表（含 Alembic 自动维护的版本表）
-EXPECTED_LOCAL_TABLES = {"local_meta", "analysis_run", "analysis_result", "alembic_version"}
+#: 本地库 upgrade head 后应存在的表（含 Alembic 自动维护的版本表；M0 4 表 + M1 17 表）
+EXPECTED_LOCAL_TABLES = {
+    # 0001_meta / 0002_analysis_m0（M0）
+    "local_meta",
+    "analysis_run",
+    "analysis_result",
+    "alembic_version",
+    # 0003_master_data（M1 主数据 7 表）
+    "sku",
+    "barcode",
+    "warehouse",
+    "location",
+    "supplier",
+    "supplier_sku",
+    "lot",
+    # 0004_inventory_events（M1 事件 6 表）
+    "inventory_event",
+    "inventory_event_line",
+    "stock_snapshot",
+    "purchase_order",
+    "purchase_order_line",
+    "inventory_balance",
+    # 0005_import（M1 导入治理 2 表）
+    "import_batch",
+    "import_error",
+    # 0006_report_backup（M1 报告与备份 2 表）
+    "report_artifact",
+    "backup_record",
+}
+#: M1 各迁移组新建的表（表存在性按迁移分组核对）
+M1_MASTER_DATA_TABLES = {
+    "sku",
+    "barcode",
+    "warehouse",
+    "location",
+    "supplier",
+    "supplier_sku",
+    "lot",
+}
+M1_INVENTORY_EVENT_TABLES = {
+    "inventory_event",
+    "inventory_event_line",
+    "stock_snapshot",
+    "purchase_order",
+    "purchase_order_line",
+    "inventory_balance",
+}
+M1_IMPORT_TABLES = {"import_batch", "import_error"}
+M1_REPORT_BACKUP_TABLES = {"report_artifact", "backup_record"}
 #: 云端库 upgrade head 后应存在的表
 EXPECTED_CONTROL_TABLES = {"control_meta", "control_enum", "alembic_version"}
 #: 两库 alembic_version 期望值
-LOCAL_HEAD = "0002_analysis_m0"
+LOCAL_HEAD = "0006_report_backup"
 CONTROL_HEAD = "control_0001"
+#: 本地 local_meta.db_schema_version 期望值（随迁移链 head 同步推进至 local-0006）
+LOCAL_SCHEMA_VERSION = "local-0006"
 #: 云端连接串环境变量（与 services/control-plane/tests/test_migrations.py 一致）
 CONTROL_TEST_URL_ENV = "CONTROL_PLANE_TEST_DATABASE_URL"
 #: PostgreSQL 连接探测超时（秒）
@@ -103,8 +157,8 @@ def verify_local_sqlite() -> None:
                     for row in conn.execute(text("SELECT key, value FROM local_meta"))
                 }
                 check(
-                    meta.get("db_schema_version") == "local-0002",
-                    "local_meta 种子 db_schema_version = local-0002",
+                    meta.get("db_schema_version") == LOCAL_SCHEMA_VERSION,
+                    f"local_meta 种子 db_schema_version = {LOCAL_SCHEMA_VERSION}（随迁移链推进）",
                 )
                 try:
                     uuid.UUID(meta.get("install_instance_id", ""))
@@ -171,6 +225,118 @@ def verify_local_sqlite() -> None:
                 check(
                     run_cols.get("run_id", ("", 0, 0))[1] == 1,
                     "analysis_run.run_id NOT NULL",
+                )
+
+                # ---- M1 扩展（0003-0006）：表存在性 + 关键约束 ----
+                check(
+                    M1_MASTER_DATA_TABLES <= tables,
+                    f"0003_master_data 7 表全部建表：{sorted(M1_MASTER_DATA_TABLES)}",
+                )
+                check(
+                    M1_INVENTORY_EVENT_TABLES <= tables,
+                    f"0004_inventory_events 6 表全部建表：{sorted(M1_INVENTORY_EVENT_TABLES)}",
+                )
+                check(
+                    M1_IMPORT_TABLES <= tables,
+                    f"0005_import 2 表全部建表：{sorted(M1_IMPORT_TABLES)}",
+                )
+                check(
+                    M1_REPORT_BACKUP_TABLES <= tables,
+                    f"0006_report_backup 2 表全部建表：{sorted(M1_REPORT_BACKUP_TABLES)}",
+                )
+
+                # 关键约束 DDL 文本核对（与 M0 同口径两步核对：DDL 约束名 +
+                # 唯一索引覆盖列）。注：CHECK 约束实际落库名经 ORM 命名约定渲染为
+                # ck_<表>_<迁移源码名>（双前缀），故按“源码名 + CHECK 表达式”子串核对
+                def _ddl(table: str) -> str:
+                    return str(
+                        conn.execute(
+                            text("SELECT sql FROM sqlite_master WHERE name = :t"),
+                            {"t": table},
+                        ).scalar_one()
+                    )
+
+                m1_ddl_checks: list[tuple[str, str, str]] = [
+                    (
+                        "sku",
+                        "CONSTRAINT uq_sku_sku_id UNIQUE (sku_id)",
+                        "sku.sku_id UNIQUE（uq_sku_sku_id）",
+                    ),
+                    (
+                        "inventory_event",
+                        "CONSTRAINT uq_inventory_event_event_id UNIQUE (event_id)",
+                        "inventory_event.event_id UNIQUE（uq_inventory_event_event_id）",
+                    ),
+                    (
+                        "inventory_event",
+                        "ck_inventory_event_quantity_positive CHECK (CAST(quantity AS REAL) > 0)",
+                        "inventory_event.quantity > 0 CHECK（ck_inventory_event_quantity_positive）",
+                    ),
+                    (
+                        "stock_snapshot",
+                        (
+                            "CONSTRAINT uq_stock_snapshot_date_sku_wh_loc_lot UNIQUE"
+                            " (snapshot_date, sku_id, warehouse_id, location_id, lot_id)"
+                        ),
+                        "stock_snapshot 五元组 UNIQUE（uq_stock_snapshot_date_sku_wh_loc_lot）",
+                    ),
+                    (
+                        "report_artifact",
+                        "CONSTRAINT uq_report_artifact_run_id_format UNIQUE (run_id, format)",
+                        "report_artifact (run_id, format) UNIQUE（uq_report_artifact_run_id_format）",
+                    ),
+                    (
+                        "backup_record",
+                        "ck_backup_record_backup_type CHECK (backup_type IN ('MANUAL', 'AUTO'))",
+                        "backup_record.backup_type 枚举 CHECK（MANUAL/AUTO）",
+                    ),
+                    (
+                        "backup_record",
+                        (
+                            "ck_backup_record_status CHECK"
+                            " (status IN ('CREATED', 'VERIFIED', 'FAILED'))"
+                        ),
+                        "backup_record.status 枚举 CHECK（CREATED/VERIFIED/FAILED）",
+                    ),
+                ]
+                for table, fragment, label in m1_ddl_checks:
+                    check(fragment in _ddl(table), f"{table} DDL 含 {label}")
+
+                # 唯一索引覆盖列核对（SQLite 把表级 UNIQUE 实现为 sqlite_autoindex_*）
+                def _unique_columns(table: str) -> list[list[str]]:
+                    unique_indexes = [
+                        row[1]
+                        for row in conn.execute(text(f"PRAGMA index_list('{table}')"))
+                        if row[2] == 1
+                    ]
+                    return [
+                        [str(row[2]) for row in conn.execute(text(f"PRAGMA index_info('{name}')"))]
+                        for name in unique_indexes
+                    ]
+
+                check(
+                    ["sku_id"] in _unique_columns("sku"),
+                    "sku.sku_id 上存在唯一索引（仅覆盖 sku_id 列）",
+                )
+                check(
+                    ["event_id"] in _unique_columns("inventory_event"),
+                    "inventory_event.event_id 上存在唯一索引（仅覆盖 event_id 列）",
+                )
+                check(
+                    [
+                        "snapshot_date",
+                        "sku_id",
+                        "warehouse_id",
+                        "location_id",
+                        "lot_id",
+                    ]
+                    in _unique_columns("stock_snapshot"),
+                    "stock_snapshot 上存在五元组唯一索引"
+                    "（snapshot_date, sku_id, warehouse_id, location_id, lot_id）",
+                )
+                check(
+                    ["run_id", "format"] in _unique_columns("report_artifact"),
+                    "report_artifact 上存在 (run_id, format) 唯一索引",
                 )
 
             # 功能性约束验证：插入后回滚，不在临时库留数据
