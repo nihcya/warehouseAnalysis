@@ -39,7 +39,7 @@ EXPECTED_LOCAL_TABLES = {"local_meta", "analysis_run", "analysis_result", "alemb
 EXPECTED_CONTROL_TABLES = {"control_meta", "control_enum", "alembic_version"}
 #: 两库 alembic_version 期望值
 LOCAL_HEAD = "0002_analysis_m0"
-CONTROL_HEAD = "control-0001"
+CONTROL_HEAD = "control_0001"
 #: 云端连接串环境变量（与 services/control-plane/tests/test_migrations.py 一致）
 CONTROL_TEST_URL_ENV = "CONTROL_PLANE_TEST_DATABASE_URL"
 #: PostgreSQL 连接探测超时（秒）

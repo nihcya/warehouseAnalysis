@@ -65,7 +65,7 @@
 
 ## 2. 云端控制库（PostgreSQL）
 
-### 2.1 control_meta（迁移 0001_control_meta，revision `control-0001`）
+### 2.1 control_meta（迁移 0001_control_meta，revision `control_0001`）
 
 数据库版本与元信息键值表。
 
@@ -76,7 +76,7 @@
 | created_at | TIMESTAMPTZ | UTC 时间戳 | 否 | 系统 | 内部 | `server_default now()` |
 | updated_at | TIMESTAMPTZ | UTC 时间戳 | 否 | 系统 | 内部 | `server_default now()`；应用层更新时刷新 |
 
-### 2.2 control_enum（迁移 0001_control_meta，revision `control-0001`）
+### 2.2 control_enum（迁移 0001_control_meta，revision `control_0001`）
 
 基础枚举字典（task_status / run_status / device_status / sync_status / move_type），种子 36 行随迁移 bulk_insert。
 

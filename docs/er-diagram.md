@@ -6,7 +6,7 @@
 | 库 | 迁移文件 | ORM / 模型 |
 |---|---|---|
 | 本地业务库（SQLite） | `local-data/alembic/versions/0001_meta.py`、`local-data/alembic/versions/0002_analysis_m0.py` | `local-data/src/local_data/models.py` |
-| 云端控制库（PostgreSQL） | `services/control-plane/alembic/versions/0001_control_meta.py`（revision `control-0001`） | M0 迁移手写、无 ORM；引入模型后挂载 Alembic 元数据 |
+| 云端控制库（PostgreSQL） | `services/control-plane/alembic/versions/0001_control_meta.py`（revision `control_0001`） | M0 迁移手写、无 ORM；引入模型后挂载 Alembic 元数据 |
 
 **M0 范围说明**：主基线 §35.2 的完整表组（本地 `sku`、`inventory_event`、`inventory_balance`、`sync_outbox` 等；云端商户/设备/许可/任务等业务表）尚未建表。本图只收录已落地迁移实际创建的表；后续迁移遵循"只加不改"，新增表/字段时须同步更新本图。
 
@@ -75,7 +75,7 @@ erDiagram
 ## 2. 云端控制库（PostgreSQL）
 
 - **连接**：`DATABASE_URL`（默认 `postgresql+psycopg://postgres:postgres@localhost:5432/warehouse_control`）；本地开发用 `docker compose -f docker-compose.dev.yml up -d postgres`
-- **迁移 revision**：`control-0001`（文件 `0001_control_meta.py`）；依据主基线 §35.7，M0 只建元数据与枚举字典，不建任何商户业务明细表
+- **迁移 revision**：`control_0001`（文件 `0001_control_meta.py`）；依据主基线 §35.7，M0 只建元数据与枚举字典，不建任何商户业务明细表
 - **枚举设计**：`code` 采用 `<kind>:<value>` 形式保证全局唯一（不同 kind 可能重名，如 task_status 与 sync_status 都有 CREATED）
 
 ```mermaid
@@ -92,7 +92,7 @@ erDiagram
         TEXT kind "枚举类别，NOT NULL"
     }
     alembic_version["alembic_version（Alembic 自动维护）"] {
-        VARCHAR version_num PK "upgrade head 后值为 control-0001"
+        VARCHAR version_num PK "upgrade head 后值为 control_0001（revision ID 不允许含 '-'）"
     }
 ```
 
@@ -125,6 +125,6 @@ erDiagram
 
 - 表存在性（本地 3 表 / 云端 2 表 + 各自 `alembic_version`）；
 - 关键约束（`analysis_run.run_id` UNIQUE、`analysis_result` FK 与复合索引、`control_enum.code` UNIQUE、两库主键）；
-- `alembic_version` 值（本地 `0002_analysis_m0` / 云端 `control-0001`）与种子数据（`db_schema_version` 等）。
+- `alembic_version` 值（本地 `0002_analysis_m0` / 云端 `control_0001`）与种子数据（`db_schema_version` 等）。
 
 云端无本地 PostgreSQL 时自动打印 skip（连接探测失败不视为失败）；测试侧同口径验证见 `local-data/tests/test_migrations.py` 与 `services/control-plane/tests/test_migrations.py`。

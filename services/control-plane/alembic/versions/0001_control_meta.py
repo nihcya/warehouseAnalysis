@@ -17,7 +17,9 @@ import sqlalchemy as sa
 from alembic import op
 from contracts import MoveType
 
-revision: str = "control-0001"
+# 注意：alembic revision ID 不允许包含 '-'（RevisionError），用下划线；
+# control_meta 种子值 db_schema_version 仍为 "control-0001"（业务版本号，不受限）
+revision: str = "control_0001"
 down_revision: str | None = None
 branch_labels: str | None = None
 depends_on: str | None = None
