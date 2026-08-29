@@ -50,11 +50,15 @@ def _connectable(url: str) -> bool:
 
 
 def _with_search_path(base_url: str, schema: str) -> str:
-    """在连接串上附加 ``options=-csearch_path=<schema>``，使迁移建在临时 schema 内。"""
+    """在连接串上附加 ``options=-csearch_path=<schema>``，使迁移建在临时 schema 内。
+
+    注意：``str(URL)`` 默认 ``hide_password=True`` 会把密码替换成字面量 ``***``，
+    导致下游用错误密码认证失败；必须用 ``render_as_string(hide_password=False)``。
+    """
     parsed = make_url(base_url)
     query = dict(parsed.query)
     query["options"] = f"-csearch_path={schema}"
-    return str(parsed.set(query=query))
+    return parsed.set(query=query).render_as_string(hide_password=False)
 
 
 def _tables_in(connection: Any, schema: str) -> set[str]:
