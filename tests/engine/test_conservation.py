@@ -6,6 +6,8 @@
 属性 2 事件数量恒正：解析后的所有事件 quantity > 0。
 属性 3 确定性：同一 dataset 两次 validate_dataset 逐字段一致，
 result.py 的 dataset_digest 稳定（含序列化往返）。
+属性 4 期间净变动守恒（M1 扩展）：opening + 本期净变动 = closing，
+在历史事件与本期事件混合、经重放内核与 analyze 公共口径双侧验证。
 """
 
 from __future__ import annotations
@@ -18,6 +20,7 @@ from contracts import AnalysisRequest, EngineDataset, MoveType, SkuRecord
 from hypothesis import given, settings
 from hypothesis import strategies as st
 from warehouse_engine import WarehouseEngine
+from warehouse_engine.replay import replay_movements
 from warehouse_engine.result import build_input_summary
 
 REQUEST = AnalysisRequest(
@@ -39,6 +42,9 @@ SKU = SkuRecord(
 MOVE_DATES = st.dates(min_value=date(2026, 6, 1), max_value=date(2026, 6, 29))
 QUANTITIES = st.integers(min_value=1, max_value=10000)
 DIRECTIONS = st.sampled_from([MoveType.INBOUND, MoveType.OUTBOUND])
+
+# 属性 4 用：历史（< start_date）与本期事件混合，允许负库存路径出现
+MIXED_MOVE_DATES = st.dates(min_value=date(2026, 5, 1), max_value=date(2026, 6, 29))
 
 
 @st.composite
@@ -127,3 +133,82 @@ def test_validate_dataset_and_digest_deterministic(movements: list[dict[str, Any
     # 序列化往返（dict → 模型 → dict → 模型）后 digest 仍稳定
     roundtrip = EngineDataset.model_validate(dataset.model_dump(mode="json"))
     assert build_input_summary(roundtrip, REQUEST).dataset_digest == digest_first
+
+
+@st.composite
+def mixed_history_period_movements(draw: st.DrawFn) -> list[dict[str, Any]]:
+    """随机生成历史（< start_date）与本期混合的 INBOUND/OUTBOUND 事件。"""
+    count = draw(st.integers(min_value=0, max_value=30))
+    movements: list[dict[str, Any]] = []
+    for index in range(count):
+        move_type = draw(DIRECTIONS)
+        quantity = draw(QUANTITIES)
+        move_date = draw(MIXED_MOVE_DATES)
+        movements.append(
+            {
+                "event_id": f"EVT-{index:04d}",
+                "sku_id": "SKU-0001",
+                "move_type": move_type.value,
+                "quantity": str(quantity),
+                "move_date": move_date.isoformat(),
+                "occurred_at": f"{move_date.isoformat()}T08:00:00Z",
+                "warehouse_id": "WH-01",
+                "source": "IMPORT",
+            }
+        )
+    return movements
+
+
+def _signed_net(movements: list[dict[str, Any]], *, start: date) -> Decimal:
+    """净变动：start_date 及以后的事件按方向求和（本期净变动）。"""
+    net = Decimal(0)
+    for movement in movements:
+        if date.fromisoformat(movement["move_date"]) < start:
+            continue
+        sign = 1 if movement["move_type"] == MoveType.INBOUND.value else -1
+        net += sign * Decimal(str(movement["quantity"]))
+    return net
+
+
+def _signed_total(movements: list[dict[str, Any]]) -> Decimal:
+    """全部事件按方向求和（含历史；初始余额为 0 时的期末期望值）。"""
+    net = Decimal(0)
+    for movement in movements:
+        sign = 1 if movement["move_type"] == MoveType.INBOUND.value else -1
+        net += sign * Decimal(str(movement["quantity"]))
+    return net
+
+
+@settings(deadline=None)
+@given(movements=mixed_history_period_movements())
+def test_opening_plus_net_change_equals_closing(movements: list[dict[str, Any]]) -> None:
+    """属性 4（M1 扩展）：opening + 本期净变动 = closing（重放内核口径）。"""
+    dataset = _dataset_of(movements)
+    outcome = replay_movements(REQUEST, dataset.movements)
+
+    for bucket in outcome.buckets:
+        assert bucket.sku_id == "SKU-0001"
+        assert bucket.warehouse_id == "WH-01"
+        # 仅有 INBOUND/OUTBOUND：期末 = 全部事件净和（初始余额 0）
+        assert bucket.closing_qty == _signed_total(movements)
+        # 期初 = 历史事件净和
+        expected_opening = _signed_total(movements) - _signed_net(movements, start=REQUEST.start_date)
+        assert bucket.opening_qty == expected_opening
+        # 守恒：opening + 本期净变动 = closing
+        assert bucket.opening_qty + _signed_net(movements, start=REQUEST.start_date) == bucket.closing_qty
+
+
+@settings(deadline=None)
+@given(movements=mixed_history_period_movements())
+def test_analyze_metrics_conservation(movements: list[dict[str, Any]]) -> None:
+    """属性 4（M1 扩展）：F-KPI-001 + 本期净变动 = F-KPI-002（analyze 公共口径）。"""
+    dataset = _dataset_of(movements)
+    result = WarehouseEngine().analyze(REQUEST, dataset)
+
+    by_id = {metric.formula_id: metric for metric in result.metrics}
+    opening = Decimal(by_id["F-KPI-001"].value)
+    closing = Decimal(by_id["F-KPI-002"].value)
+    net = _signed_net(movements, start=REQUEST.start_date)
+    assert opening + net == closing
+    # 期末同时等于全部事件净和（初始余额 0）
+    assert closing == _signed_total(movements)

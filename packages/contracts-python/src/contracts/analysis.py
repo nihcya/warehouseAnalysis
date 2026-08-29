@@ -139,6 +139,10 @@ class MovementRecord(BaseModel):
     unit_cost: DecimalAmount | None = Field(default=None, ge=0, description="单位成本")
     lot_id: str | None = None
     source: EventSource
+    reversal_of: str | None = Field(
+        default=None,
+        description="被冲销事件的 event_id（仅 REVERSAL 事件使用；引用不存在时校验阻断）",
+    )
 
 
 class SnapshotRecord(BaseModel):
@@ -294,6 +298,10 @@ class ResultMetric(BaseModel):
     formula_id: str
     formula_version: str
     sample_count: int
+    reason: str | None = Field(
+        default=None,
+        description="指标值为 null 或降级时的原因标注（如 empty_dataset、no_outflow）",
+    )
 
 
 class InputSummary(BaseModel):
@@ -321,6 +329,35 @@ class InputSummary(BaseModel):
     period_start: date
     period_end: date
     dataset_digest: str
+
+
+class DataQualityEntry(BaseModel):
+    """数据质量报告条目：按 Warning 码汇总的计数与明细（M1 新增，可选）。"""
+
+    model_config = ConfigDict(
+        populate_by_name=True,
+        json_schema_extra={
+            "examples": [
+                {
+                    "code": "NEGATIVE_BALANCE",
+                    "count": 2,
+                    "details": [
+                        {
+                            "code": "NEGATIVE_BALANCE",
+                            "severity": "WARN",
+                            "message": "SKU-0001 在 WH-01 于 2026-06-05 出现负余额 -5",
+                            "fields": ["SKU-0001", "WH-01", "2026-06-05", "-5"],
+                            "blocking": False,
+                        }
+                    ],
+                }
+            ]
+        },
+    )
+
+    code: str
+    count: int
+    details: list[Warning] = Field(default_factory=list)
 
 
 class AnalysisResult(BaseModel):
@@ -363,6 +400,10 @@ class AnalysisResult(BaseModel):
     warnings: list[Warning] = Field(default_factory=list)
     summary: str
     input_summary: InputSummary
+    data_quality: list[DataQualityEntry] | None = Field(
+        default=None,
+        description="数据质量报告：Warning 按码汇总（计数+明细）；None 表示未生成（如 M0 结果）",
+    )
 
 
 class CapabilityDescriptor(BaseModel):

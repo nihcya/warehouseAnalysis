@@ -3,7 +3,7 @@
 由 ``WarehouseEngine.validate_dataset``（传入 request，含期间规则）与
 ``warehouse_engine.validation.validate_raw_dataset``（无 request，跳过期间规则）复用。
 口径与 docs/formula-spec.md 的精度冻结保持一致：
-数量 scale<=3、金额 scale<=2。
+数量 scale<=3、金额 scale<=2；冲销引用与盘点实盘数量校验见 §2.5/§2.6。
 """
 
 from __future__ import annotations
@@ -14,6 +14,8 @@ from warehouse_engine.contracts import (
     AnalysisRequest,
     EngineDataset,
     ErrorCode,
+    MovementRecord,
+    MoveType,
     ValidationIssue,
     Warning,
     WarningSeverity,
@@ -162,6 +164,99 @@ def _check_negative_snapshots(dataset: EngineDataset) -> list[Warning]:
     return warnings
 
 
+def _check_reversal_references(dataset: EngineDataset) -> list[ValidationIssue]:
+    """冲销引用校验（formula-spec §2.6）。
+
+    - REVERSAL 事件缺少 ``reversal_of``、或引用的 ``event_id`` 不存在：
+      阻断 issue（code=DATA_VALIDATION_FAILED），定位到该冲销事件；
+    - 冲销引用链出现环（含自引用）：属结构/引用错误，阻断。
+    """
+    issues: list[ValidationIssue] = []
+    events_by_id: dict[str, MovementRecord] = {
+        movement.event_id: movement for movement in dataset.movements
+    }
+    for row, movement in enumerate(dataset.movements):
+        if movement.move_type is not MoveType.REVERSAL:
+            continue
+        reference = movement.reversal_of
+        if not reference:
+            issues.append(
+                ValidationIssue(
+                    row=row,
+                    field="movements.reversal_of",
+                    reason=(
+                        f"movements[{row}] 冲销事件 {movement.event_id} "
+                        "缺少被冲销事件引用（reversal_of 为空）。"
+                    ),
+                    code=ErrorCode.DATA_VALIDATION_FAILED,
+                )
+            )
+            continue
+        target = events_by_id.get(reference)
+        if target is None:
+            issues.append(
+                ValidationIssue(
+                    row=row,
+                    field="movements.reversal_of",
+                    reason=(
+                        f"movements[{row}] 冲销事件 {movement.event_id} 引用的 "
+                        f"event_id={reference} 在数据集中不存在。"
+                    ),
+                    code=ErrorCode.DATA_VALIDATION_FAILED,
+                )
+            )
+            continue
+        # 沿引用链检测环：自引用或回到已访问节点均视为结构错误
+        visited = {movement.event_id}
+        current = target
+        while current.move_type is MoveType.REVERSAL:
+            next_id = current.reversal_of
+            if next_id is None or next_id not in events_by_id:
+                break  # 引用缺失已由上方或对应该行的检查覆盖
+            if next_id in visited:
+                issues.append(
+                    ValidationIssue(
+                        row=row,
+                        field="movements.reversal_of",
+                        reason=(
+                            f"movements[{row}] 冲销事件 {movement.event_id} 的 "
+                            f"引用链存在环（经过 {next_id}）。"
+                        ),
+                        code=ErrorCode.DATA_VALIDATION_FAILED,
+                    )
+                )
+                break
+            visited.add(next_id)
+            current = events_by_id[next_id]
+    return issues
+
+
+def _check_stocktake_on_hand(dataset: EngineDataset) -> list[ValidationIssue]:
+    """盘点实盘数量（on_hand_qty）合法性（formula-spec §2.5）。
+
+    STOCKTAKE 事件的 quantity 即实盘数量，必须为正数（盘点记录不携带方向）；
+    非法值阻断（code=DATA_VALIDATION_FAILED）。契约层 ``quantity > 0`` 约束
+    在记录解析时已拦截同类问题，本规则保证重放内核的替换值恒为正。
+    """
+    issues: list[ValidationIssue] = []
+    for row, movement in enumerate(dataset.movements):
+        if movement.move_type is not MoveType.STOCKTAKE:
+            continue
+        if movement.quantity <= 0:
+            issues.append(
+                ValidationIssue(
+                    row=row,
+                    field="movements.quantity",
+                    reason=(
+                        f"movements[{row}] 盘点事件 {movement.event_id} 的实盘数量 "
+                        f"on_hand_qty={movement.quantity} 非正数，无法作为余额替换值。"
+                    ),
+                    code=ErrorCode.DATA_VALIDATION_FAILED,
+                )
+            )
+    return issues
+
+
 def apply_dataset_rules(
     dataset: EngineDataset,
     request: AnalysisRequest | None = None,
@@ -174,6 +269,8 @@ def apply_dataset_rules(
     issues.extend(_check_precision(dataset))
     issues.extend(_check_duplicate_events(dataset))
     issues.extend(_check_sku_references(dataset))
+    issues.extend(_check_reversal_references(dataset))
+    issues.extend(_check_stocktake_on_hand(dataset))
 
     warnings: list[Warning] = []
     warnings.extend(_check_negative_snapshots(dataset))

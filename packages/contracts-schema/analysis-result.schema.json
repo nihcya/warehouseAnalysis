@@ -1,5 +1,51 @@
 {
   "$defs": {
+    "DataQualityEntry": {
+      "description": "数据质量报告条目：按 Warning 码汇总的计数与明细（M1 新增，可选）。",
+      "examples": [
+        {
+          "code": "NEGATIVE_BALANCE",
+          "count": 2,
+          "details": [
+            {
+              "blocking": false,
+              "code": "NEGATIVE_BALANCE",
+              "fields": [
+                "SKU-0001",
+                "WH-01",
+                "2026-06-05",
+                "-5"
+              ],
+              "message": "SKU-0001 在 WH-01 于 2026-06-05 出现负余额 -5",
+              "severity": "WARN"
+            }
+          ]
+        }
+      ],
+      "properties": {
+        "code": {
+          "title": "Code",
+          "type": "string"
+        },
+        "count": {
+          "title": "Count",
+          "type": "integer"
+        },
+        "details": {
+          "items": {
+            "$ref": "#/$defs/Warning"
+          },
+          "title": "Details",
+          "type": "array"
+        }
+      },
+      "required": [
+        "code",
+        "count"
+      ],
+      "title": "DataQualityEntry",
+      "type": "object"
+    },
     "InputSummary": {
       "description": "输入摘要：结果可追溯与历史重开的依据。",
       "examples": [
@@ -97,6 +143,19 @@
         "sample_count": {
           "title": "Sample Count",
           "type": "integer"
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "指标值为 null 或降级时的原因标注（如 empty_dataset、no_outflow）",
+          "title": "Reason"
         }
       },
       "required": [
@@ -237,6 +296,22 @@
     },
     "input_summary": {
       "$ref": "#/$defs/InputSummary"
+    },
+    "data_quality": {
+      "anyOf": [
+        {
+          "items": {
+            "$ref": "#/$defs/DataQualityEntry"
+          },
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "数据质量报告：Warning 按码汇总（计数+明细）；None 表示未生成（如 M0 结果）",
+      "title": "Data Quality"
     }
   },
   "required": [
