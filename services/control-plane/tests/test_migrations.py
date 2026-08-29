@@ -82,11 +82,15 @@ def test_control_meta_upgrade_downgrade_roundtrip(postgres_url: str) -> None:
         connection.execute(text(f'CREATE SCHEMA "{schema}"'))
         connection.commit()
 
+    # 注意：不能用 set_main_option 注入含 URL 编码（%3D 等）的连接串——
+    # configparser 的 BasicInterpolation 会把 % 当插值符直接抛 ValueError；
+    # 改走 -x database_url 覆盖（env.py 优先级最高，不经过 ini 解析）
+    test_url = _with_search_path(postgres_url, schema)
+
     cfg = Config(str(ALEMBIC_INI))
-    cfg.set_main_option("sqlalchemy.url", _with_search_path(postgres_url, schema))
 
     try:
-        command.upgrade(cfg, "head")
+        command.upgrade(cfg, "head", x={"database_url": test_url})
 
         with admin.connect() as connection:
             tables = _tables_in(connection, schema)
@@ -102,7 +106,7 @@ def test_control_meta_upgrade_downgrade_roundtrip(postgres_url: str) -> None:
             ).scalar_one()
             assert schema_version == "control-0001"
 
-        command.downgrade(cfg, "base")
+        command.downgrade(cfg, "base", x={"database_url": test_url})
 
         with admin.connect() as connection:
             tables = _tables_in(connection, schema)
