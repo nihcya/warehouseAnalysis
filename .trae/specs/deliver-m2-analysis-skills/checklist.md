@@ -71,6 +71,6 @@
 - [x] `pytest` 全绿（B 侧 273 passed / 17 skipped，A 侧未触碰）
 - [x] `ruff check packages scripts tests` 全过
 - [x] `mypy packages/warehouse-engine/src packages/contracts-python/src` 无问题
-- [ ] `scripts/export_schemas.py` 重导出无 diff（**契约零改动门禁证据**）—— Task 10 复测
-- [ ] `perf_bench` 1 万/10 万行未劣化 M1 阈值（≤5s / ≤40s）—— Task 10 复测
+- [x] `scripts/export_schemas.py` 重导出无 diff（**契约零改动门禁证据**：重写后 git 对 contracts-schema 零 diff）
+- [x] `perf_bench` 1 万/10 万行未劣化 M1 阈值（本机 0.048s / 0.824s，远低于 ≤5s / ≤40s；本地机快于 M1 参考 Windows 盒，方向性确认未回归）
 - [ ] PR 按 §26.2 模板提交，contracts 无变更（schema_version 保持 1.0）
