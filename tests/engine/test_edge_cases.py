@@ -23,8 +23,9 @@ from typing import Any
 import pytest
 from contracts import AnalysisRequest, EngineDataset
 from warehouse_engine import WarehouseEngine
-from warehouse_engine.calculators import inventory_kpi
 from warehouse_engine.errors import DataValidationError
+
+from tests.engine.conftest import ALL_M2_FORMULA_IDS
 
 EDGE_DIR = Path(__file__).resolve().parents[2] / "tests" / "fixtures" / "edge"
 
@@ -88,10 +89,12 @@ def test_edge_fixture_analyze_metrics_match_expected(
     filename: str,
     tolerance_check,
 ) -> None:
-    """M1 指标层：analyze 结果与 fixture expected 段的手工推导冻结值一致。
+    """指标层：analyze 结果与 fixture expected 段的手工推导冻结值一致。
 
     - blocked=true：校验阻断，analyze 抛 DataValidationError（无指标输出）；
-    - 其余：全部 9 个 KPI/COGS 指标按 §10 容差断言（null 值含 reason），
+    - 其余：M2 起 analyze 恒输出 18 个指标（五类公式，每个 formula_id 恰一个）；
+      fixture 的 expected["metrics"] 冻结其中手工推导的部分（M1 冻结的 9 个
+      KPI/COGS 指标必含在内），按 §10 容差断言（null 值含 reason）；
       Warning 序列（code + fields）与冻结值完全一致。
     """
     payload = _load_edge(filename)
@@ -107,7 +110,9 @@ def test_edge_fixture_analyze_metrics_match_expected(
     result = WarehouseEngine().analyze(request, dataset)
 
     by_id = {metric.formula_id: metric for metric in result.metrics}
-    assert set(by_id) == set(expected["metrics"]) == set(inventory_kpi.FORMULA_IDS)
+    # M2：指标清单恒为 18 个；fixture 只冻结其中手工推导的部分
+    assert set(by_id) == set(ALL_M2_FORMULA_IDS)
+    assert set(expected["metrics"]) <= set(by_id)
     for formula_id, item in expected["metrics"].items():
         metric = by_id[formula_id]
         assert metric.unit == item["unit"], formula_id

@@ -222,9 +222,19 @@ def _metric(
     )
 
 
-def calculate(request: AnalysisRequest, dataset: EngineDataset) -> InventoryKpiResult:
-    """按 formula-spec §3 计算 F-KPI-001~008 与 F-COGS-001。"""
-    outcome = replay_movements(request, dataset.movements)
+def calculate(
+    request: AnalysisRequest,
+    dataset: EngineDataset,
+    *,
+    outcome: ReplayOutcome | None = None,
+) -> InventoryKpiResult:
+    """按 formula-spec §3 计算 F-KPI-001~008 与 F-COGS-001。
+
+    ``outcome`` 为 M2 新增的可选注入参数：``analyze`` 复用同一次重放结果传给
+    五个计算器，避免重复重放；不传时（单测 / 独立调用）行为与 M1 完全一致。
+    """
+    if outcome is None:
+        outcome = replay_movements(request, dataset.movements)
     snapshots = _scoped_snapshots(request, dataset.snapshots)
     latest_snapshot = _latest_snapshot_by_sku(snapshots)
     rollup = _rollup_sku(outcome)
