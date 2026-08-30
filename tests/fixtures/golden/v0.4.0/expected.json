@@ -1,0 +1,308 @@
+{
+  "frozen_scope": "本数据集冻结补货（F-REPL-001~003）、预测与误差（F-FCST-001~002）与行业基准（F-BM-001）六项 M2 焦点口径，并给出 KPI/COGS 九项与 ABC/库龄/呆滞三项的冻结值（后三者的边界口径在 golden/v0.3.0 覆盖）。σ_d 与由其派生的 SS/ROP/Q* 为无理数，按 §7.1/§7.2 公式以独立高精度算术求值后保留 6 位小数记录（推导式见各 derivation），数值断言按 §10 数量类容差 abs ≤ 0.001 执行。全部数值禁止以引擎输出回填。",
+  "validation": {
+    "valid": true,
+    "issue_codes": [],
+    "warning_codes": [
+      "PERIOD_MISMATCH",
+      "PERIOD_MISMATCH"
+    ],
+    "warning_codes_note": "2 条历史入库（EVT-0001、EVT-0002，2026-05-01）move_date < start_date，各发一条 PERIOD_MISMATCH"
+  },
+  "metrics": {
+    "F-KPI-001": {
+      "value": "500",
+      "unit": "件",
+      "sample_count": 2,
+      "tolerance": "qty",
+      "derivation": "期初 = 200（SKU-0001）+ 300（SKU-0002）= 500"
+    },
+    "F-KPI-002": {
+      "value": "200",
+      "unit": "件",
+      "sample_count": 2,
+      "tolerance": "qty",
+      "derivation": "SKU-0001：200 − 5×28 = 60；SKU-0002：300 − (40+20+60+40) = 140；合计 200"
+    },
+    "F-KPI-003": {
+      "value": "300",
+      "unit": "件",
+      "sample_count": 2,
+      "tolerance": "qty",
+      "derivation": "140 + 160 = 300"
+    },
+    "F-KPI-004": {
+      "value": "1.000000",
+      "unit": "ratio",
+      "sample_count": 2,
+      "tolerance": "ratio",
+      "derivation": "两个 SKU 均有出库且期末 > 0 → 2/2 = 1"
+    },
+    "F-KPI-005": {
+      "value": "540.00",
+      "unit": "CNY",
+      "sample_count": 2,
+      "tolerance": "money",
+      "derivation": "60 × 2.00 + 140 × 3.00 = 120 + 420 = 540.00"
+    },
+    "F-COGS-001": {
+      "value": "760.00",
+      "unit": "CNY",
+      "sample_count": 2,
+      "tolerance": "money",
+      "derivation": "各 SKU 单一入库成本即移动加权平均成本：140 × 2.00 + 160 × 3.00 = 280 + 480 = 760.00"
+    },
+    "F-KPI-006": {
+      "value": "0.826087",
+      "unit": "次/期间",
+      "sample_count": 2,
+      "tolerance": "ratio",
+      "derivation": "期初价值 200×2 + 300×3 = 1300，期末价值 540，平均 920；turnover = 760/920 = 0.82608695… → 0.826087"
+    },
+    "F-KPI-007": {
+      "value": "33.894737",
+      "unit": "天",
+      "sample_count": 2,
+      "tolerance": "ratio",
+      "derivation": "period_days = 28；turnover_days = 28 / (760/920) = 25760/760 = 33.8947368… → 33.894737"
+    },
+    "F-KPI-008": {
+      "value": "18.666667",
+      "unit": "天",
+      "sample_count": 2,
+      "tolerance": "ratio",
+      "derivation": "daily_out = 300/28；coverage_days = 200 / (300/28) = 5600/300 = 18.6666666… → 18.666667"
+    },
+    "F-ABC-001": {
+      "value": "2",
+      "unit": "SKU",
+      "sample_count": 2,
+      "tolerance": "qty",
+      "reason": null,
+      "derivation": "amt：SKU-0001 = 140 × 2.00 = 280、SKU-0002 = 160 × 3.00 = 480，Σ = 760；降序累计 480/760 = 0.631578… ≤ 0.80 → A，280 累计 1.00 → C"
+    },
+    "F-AGE-001": {
+      "value": "59.000000",
+      "unit": "天",
+      "sample_count": 2,
+      "tolerance": "ratio",
+      "derivation": "观察点 2026-06-29；两个 SKU 入库同为 2026-05-01，库龄 = 06-29 − 05-01 = 59 天（无批次，FIFO 残余合计恰等于期末余额 → constituent 口径）；加权平均 (60×59 + 140×59)/200 = 59"
+    },
+    "F-STALE-001": {
+      "value": "0.00",
+      "unit": "CNY",
+      "sample_count": 0,
+      "tolerance": "money",
+      "derivation": "豁免分界 = 2026-06-29 − 120 天 = 2026-03-01；两 SKU 首次入库 2026-05-01 晚于分界 → 新品豁免，均不判呆滞"
+    },
+    "F-REPL-001": {
+      "value": "125.496422",
+      "unit": "件",
+      "sample_count": 2,
+      "tolerance": "qty",
+      "derivation": "SKU-0001 逐日需求恒为 5 → σ_d = 0 → SS = 0；SKU-0002 逐日需求 [40,0×6,20,0×6,60,0×6,40,0×5]，n = 28、Σ = 160、均值 40/7，Σ(x−x̄)² = 308000/49，样本方差 = 308000/1323 = 232.803478…，σ_d = 15.257923607…；SS = 1.645 × 15.257923607… × √25 = 125.496421670…；合计 0 + 125.496421670… = 125.496422（6 位小数）"
+    },
+    "F-REPL-002": {
+      "value": "393.353565",
+      "unit": "件",
+      "sample_count": 2,
+      "tolerance": "qty",
+      "derivation": "SKU-0001：d̄ = 140/28 = 5 → ROP = 5 × 25 + 0 = 125；SKU-0002：d̄ = 160/28 = 5.714285714… → ROP = 5.714285714… × 25 + 125.496421670… = 268.353564527…；合计 393.353565"
+    },
+    "F-REPL-003": {
+      "value": "193.353565",
+      "unit": "件",
+      "sample_count": 2,
+      "tolerance": "qty",
+      "derivation": "SKU-0001：max(0, 125 − 期末 60 − 在途 0) = 65；SKU-0002：max(0, 268.353564527… − 期末 140 − 在途 0) = 128.353564527…；合计 193.353565"
+    },
+    "F-FCST-001": {
+      "value": "75",
+      "unit": "件",
+      "sample_count": 2,
+      "tolerance": "qty",
+      "derivation": "逐周需求（周一为周首，4 周）：SKU-0001 [35,35,35,35]、SKU-0002 [40,20,60,40]；下一周预测取最近 4 周均值 → 35 与 40，合计 75"
+    },
+    "F-FCST-002": {
+      "value": "25.000000",
+      "unit": "ratio",
+      "sample_count": 6,
+      "tolerance": "ratio",
+      "derivation": "缺省 split_date = 06-29 − 28 天 = 06-01 = start_date，预测窗口为全部 4 周（第 1 周无前置周数据不产生预测）。滚动一步向前：SKU-0001 预测 35/35/35 对实际 35/35/35，误差全 0；SKU-0002 预测 40/30/40 对实际 20/60/40，误差 −20/+30/0。d_t > 0 的期共 6 个，Σ|e|/d = 0+0+0+1+0.5+0 = 1.5 → MAPE = 100 × 1.5/6 = 25"
+    },
+    "F-BM-001": {
+      "value": "-0.173913",
+      "unit": "ratio",
+      "sample_count": 1,
+      "tolerance": "ratio",
+      "derivation": "基准经 parameters 注入（综合零售 / 全国 / KPI.TURNOVER = 1.00，八字段齐备）；商户值取 KPI.TURNOVER 指标 0.826087 → 相对偏差 (0.826087 − 1.00)/1.00 = −0.173913"
+    }
+  },
+  "per_sku": {
+    "SKU-0001": {
+      "opening_qty": "200",
+      "closing_qty": "60",
+      "out_qty": "140",
+      "cogs": "280.00",
+      "inventory_value": "120.00"
+    },
+    "SKU-0002": {
+      "opening_qty": "300",
+      "closing_qty": "140",
+      "out_qty": "160",
+      "cogs": "480.00",
+      "inventory_value": "420.00"
+    }
+  },
+  "replenishment": {
+    "rows": [
+      {
+        "sku_id": "SKU-0001",
+        "sigma_d": "0",
+        "avg_daily_demand": "5",
+        "lead_time_days": "25",
+        "service_level": "0.95",
+        "z": "1.645",
+        "safety_stock": "0.000",
+        "reorder_point": "125.000",
+        "suggested_qty": "65.000",
+        "on_order_qty": "0",
+        "missing_params": []
+      },
+      {
+        "sku_id": "SKU-0002",
+        "sigma_d": "15.257924",
+        "avg_daily_demand": "5.714286",
+        "lead_time_days": "25",
+        "service_level": "0.95",
+        "z": "1.645",
+        "safety_stock": "125.496422",
+        "reorder_point": "268.353565",
+        "suggested_qty": "128.353565",
+        "on_order_qty": "0",
+        "missing_params": []
+      }
+    ],
+    "note": "SKU-0001 逐日需求恒定 → σ_d = 0 → SS = 0（§7.5 边界），d̄ = 5 使 ROP = d̄×LT + SS = 125；SKU-0002 σ_d ≈ 15.257924 按公式独立求值。两者 lead_time_days = 25 → √LT = 5"
+  },
+  "forecast": {
+    "split_date": "2026-06-01",
+    "rows": [
+      {
+        "sku_id": "SKU-0001",
+        "weekly_demand": [
+          "35",
+          "35",
+          "35",
+          "35"
+        ],
+        "train_periods": 0,
+        "forecast_periods": 4,
+        "next_week_forecast": "35",
+        "daily_forecast": "5.000000",
+        "mape": "0",
+        "wape": "0",
+        "mae": "0",
+        "rmse": "0"
+      },
+      {
+        "sku_id": "SKU-0002",
+        "weekly_demand": [
+          "40",
+          "20",
+          "60",
+          "40"
+        ],
+        "train_periods": 0,
+        "forecast_periods": 4,
+        "next_week_forecast": "40",
+        "daily_forecast": "5.714286",
+        "mape": "50.000000",
+        "wape": "0.416667",
+        "mae": "16.666667",
+        "rmse": "20.816660"
+      }
+    ],
+    "note": "缺省 split_date = end_date − 28 天 = start_date，故训练窗口为 0 周、预测窗口 4 周，第 1 周无前置周数据不产生预测（误差求和的分子与分母同口径，均只覆盖可预测期）。SKU-0001 预测 35/35/35 对实际 35/35/35，误差全 0。SKU-0002 预测 40/30/40 对实际 20/60/40，误差 −20 / +30 / 0：WAPE = Σ|e|/Σd = 50/120 = 0.416667（Σd 取可预测的 3 期 20+60+40 = 120，与分子同口径）；MAE = 50/3 = 16.666667；RMSE = √((400+900+0)/3) = √433.3333… = 20.816660；MAPE = 100×(20/20 + 30/60 + 0/40)/3 = 100×(1+0.5+0)/3 = 50（聚合 MAPE 因并入 SKU-0001 的三个零误差期而为 25）。注：§8.2 的 n 在训练窗口充足时即预测窗口期数；训练窗口不足导致早期期次无法预测时，这些期次从分子分母中一并剔除，以保持 MAPE / WAPE / MAE / RMSE 同口径"
+  },
+  "benchmark": {
+    "comparisons": [
+      {
+        "metric_name": "KPI.TURNOVER",
+        "merchant_value": "0.826087",
+        "benchmark_value": "1.00",
+        "absolute_diff": "-0.173913",
+        "relative_diff": "-0.173913",
+        "source": "中国仓储与配送协会",
+        "region": "全国",
+        "industry": "综合零售",
+        "benchmark_version": "1.1.0",
+        "updated_at": "2026-06-01",
+        "unit": "次/期间"
+      }
+    ],
+    "discarded_records": 0,
+    "note": "注入的基准记录八字段齐备，命中 (综合零售, 全国, KPI.TURNOVER)"
+  },
+  "stale": {
+    "rows": [
+      {
+        "sku_id": "SKU-0001",
+        "no_outflow_days": 1,
+        "is_stale": false,
+        "excluded_reason": "new_inbound"
+      },
+      {
+        "sku_id": "SKU-0002",
+        "no_outflow_days": 7,
+        "is_stale": false,
+        "excluded_reason": "new_inbound"
+      }
+    ],
+    "stale_qty": "0",
+    "stale_ratio": "0",
+    "note": "豁免分界 2026-03-01；两 SKU 首次入库 2026-05-01 晚于分界 → 新品豁免优先于天数判定"
+  },
+  "analyze_warnings": [
+    {
+      "code": "PERIOD_MISMATCH",
+      "fields": [
+        "move_date"
+      ]
+    },
+    {
+      "code": "PERIOD_MISMATCH",
+      "fields": [
+        "move_date"
+      ]
+    },
+    {
+      "code": "INSUFFICIENT_SAMPLES",
+      "fields": [
+        "SKU-0001",
+        "4"
+      ]
+    },
+    {
+      "code": "INSUFFICIENT_SAMPLES",
+      "fields": [
+        "SKU-0002",
+        "4"
+      ]
+    }
+  ],
+  "analyze_warnings_note": "顺序固定为 校验层 → KPI → abc-aging → 补货 → 预测 → 基准。共 4 条：2 条历史入库 PERIOD_MISMATCH、2 条有效需求期数 4 < 12（补货参数齐备故无 PARAM_MISSING；基准命中故无 BENCHMARK_UNAVAILABLE）",
+  "tolerances": {
+    "money_abs": "0.01",
+    "money_rel": "1e-6",
+    "qty_abs": "0.001",
+    "qty_rel": "1e-9",
+    "ratio_abs": "1e-6",
+    "ratio_rel": "1e-6",
+    "abc_exact": true,
+    "aging_bucket_exact": true,
+    "stale_exact": true,
+    "forecast_deterministic": true,
+    "note": "容差按 formula-spec §10（满足其一即通过）；ABC 分类与排序、库龄档位、呆滞判定按 §10 完全一致；Warning 按 code+fields 完全一致"
+  }
+}
