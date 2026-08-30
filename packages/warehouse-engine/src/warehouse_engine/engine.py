@@ -1,9 +1,12 @@
-"""WarehouseEngine：M0 基线引擎。
+"""WarehouseEngine：M1 引擎（KPI/COGS 真实计算，其余能力维持占位）。
 
-M0 范围：
-- validate_dataset：真实基础校验（精度、重复事件、SKU 引用、期间、负库存）；
-- analyze：先校验，阻断则抛 DataValidationError，通过则返回占位结果；
-- list_capabilities：五个计算能力的占位描述（公式 ID 冻结于 docs/formula-spec.md）。
+M1 范围：
+- validate_dataset：真实基础校验（精度、重复事件、SKU 引用、期间、负库存、
+  冲销引用与盘点实盘数量）；
+- analyze：先校验（阻断抛 DataValidationError），通过则计算真实 KPI/COGS 指标
+  （F-KPI-001~008、F-COGS-001），abc-aging/replenishment/forecasting/benchmark
+  四类维持 M0 占位行为与占位 Warning，并随结果生成数据质量报告；
+- list_capabilities：五个计算能力描述（公式 ID 冻结于 docs/formula-spec.md）。
 """
 
 from __future__ import annotations
@@ -28,7 +31,7 @@ from warehouse_engine.contracts import (
     WarningSeverity,
 )
 from warehouse_engine.errors import DataValidationError
-from warehouse_engine.result import build_analysis_result
+from warehouse_engine.result import build_analysis_result, build_data_quality
 from warehouse_engine.validation.rules import apply_dataset_rules
 
 #: 进度回调：接收 0.0~1.0 的完成比例
@@ -56,7 +59,7 @@ def _capability(
 
 
 class WarehouseEngine:
-    """仓库品类分析引擎（M0 基线骨架）。"""
+    """仓库品类分析引擎（M1：KPI/COGS 真实计算）。"""
 
     engine_version: str = ENGINE_VERSION
     formula_version: str = FORMULA_VERSION
@@ -76,35 +79,56 @@ class WarehouseEngine:
         dataset: EngineDataset,
         progress: ProgressCallback | None = None,
     ) -> AnalysisResult:
-        """M0 行为：先校验；阻断时抛 DataValidationError，否则返回占位结果。
+        """M1 行为：先校验；阻断时抛 DataValidationError，否则返回真实 KPI/COGS 结果。
 
         - 不修改传入的 request 与 dataset；
-        - 占位结果 metrics 为空，warnings 携带 code=ANALYSIS_PLACEHOLDER 的非阻断警告。
+        - KPI/COGS（F-KPI-001~008、F-COGS-001）返回真实计算结果；
+        - abc-aging/replenishment/forecasting/benchmark 四类维持 M0 占位行为，
+          以 code=ANALYSIS_PLACEHOLDER 的非阻断 Warning 标注；
+        - warnings 汇总校验层与计算层全部非阻断警告，data_quality 按码汇总
+          （计数 + 明细）随结果返回；
+        - 同一输入重复调用，序列化结果逐字节一致（无随机性、无时间依赖）；
+        - progress 回调按阶段推进：0.0（校验开始）→ 0.3（校验完成）→
+          0.9（KPI 计算完成）→ 1.0（结果组装完成）。
         """
+        if progress is not None:
+            progress(0.0)
         report = self.validate_dataset(request, dataset)
         if not report.valid:
             raise DataValidationError(
                 "输入数据校验未通过，分析已阻断。",
                 details=[issue.model_dump(mode="json") for issue in report.issues],
             )
+        if progress is not None:
+            progress(0.3)
+        kpi = inventory_kpi.calculate(request, dataset)
+        if progress is not None:
+            progress(0.9)
         placeholder = Warning(
             code="ANALYSIS_PLACEHOLDER",
             severity=WarningSeverity.INFO,
-            message="M0 基线：计算器尚未实现，本次为占位结果（metrics 为空）。",
+            message=(
+                "abc-aging/replenishment/forecasting/benchmark 四类计算器尚未实现，"
+                "相应结果为占位（本次已返回 KPI/COGS 真实指标）。"
+            ),
             fields=[],
             blocking=False,
         )
+        warnings = [*report.warnings, *kpi.warnings, placeholder]
         result = build_analysis_result(
             request,
             dataset,
             engine_version=self.engine_version,
             formula_version=self.formula_version,
-            metrics=[],
-            warnings=[*report.warnings, placeholder],
-            summary="M0 占位结果：仅完成输入校验与摘要，指标计算将在 M1/M2 交付。",
+            metrics=kpi.metrics,
+            warnings=warnings,
+            summary=(
+                "KPI/COGS 真实结果（F-KPI-001~008、F-COGS-001）；"
+                "abc-aging/replenishment/forecasting/benchmark 为 M0 占位，待 M1/M2 交付。"
+            ),
+            data_quality=build_data_quality(warnings),
         )
         if progress is not None:
-            # M0 无真实计算阶段，直接汇报完成
             progress(1.0)
         return result
 

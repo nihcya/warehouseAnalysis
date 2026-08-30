@@ -7,7 +7,7 @@
 | 名称 | `abc-aging` |
 | 版本 | 0.1.0 |
 | 状态 | skeleton（M0 骨架，公式未冻结） |
-| 绑定 engine 版本 | `>=0.1.0,<0.2.0` |
+| 绑定 engine 版本 | `>=0.1.0,<0.3.0` |
 | 公式版本 | 0.1.0（见 `docs/formula-spec.md`） |
 
 ## 用途
@@ -73,6 +73,6 @@
 
 | 组件 | 版本 | 兼容要求 |
 |---|---|---|
-| warehouse-engine | 0.1.0 | 本 Skill 绑定 `>=0.1.0,<0.2.0` |
+| warehouse-engine | 0.2.0 | 本 Skill 绑定 `>=0.1.0,<0.3.0`（兼容 0.1.0 FakeEngine 与 0.2.0 真实引擎） |
 | contracts | 1.0 | 输入/输出 Schema 与 Pydantic 模型一致 |
 | formula | 0.1.0 | 口径见 `docs/formula-spec.md`，未冻结 |

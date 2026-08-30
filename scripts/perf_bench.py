@@ -1,15 +1,17 @@
-"""性能基准占位入口（M0）。
+"""性能基准入口（M1：validate + analyze KPI + digest 计时）。
 
 用法：
     uv run python scripts/perf_bench.py                 # 默认 1 万 / 10 万 / 100 万条
     uv run python scripts/perf_bench.py --size 10000    # 仅跑指定规模（可重复传入）
 
 生成随机 movements（固定随机种子，只依赖标准库与已装依赖），分别计时
-``WarehouseEngine.validate_dataset`` 与 ``dataset_digest``（result.build_input_summary），
-以 JSON 报告输出到 stdout。
+``WarehouseEngine.validate_dataset``、``WarehouseEngine.analyze``（含真实
+KPI/COGS 计算；注意 analyze 内部会再执行一次校验）与 ``dataset_digest``
+（result.build_input_summary），以 JSON 报告输出到 stdout。
 
-M0 不设阈值（性能门禁占位）：
-- M1：随指标计算实现，接入"指标计算耗时"阈值；
+阈值口径：
+- M1：阈值建议基于本脚本实测基线设定（记录于 docs/m1-handover-b.md），
+  脚本本身不设硬门禁；
 - M3：冻结性能基线与 CI 硬件条件下的耗时上限（口径以 docs/formula-spec.md
   第 10 节"重复运行要求"与开发规划文档的性能验收为准）。
 """
@@ -88,7 +90,7 @@ def build_dataset(size: int, rng: random.Random) -> EngineDataset:
 
 def main() -> None:
     """运行基准并输出 JSON 报告（stdout）。"""
-    parser = argparse.ArgumentParser(description="M0 性能基准占位入口（不设阈值）")
+    parser = argparse.ArgumentParser(description="M1 性能基准入口（validate/analyze/digest 计时）")
     parser.add_argument(
         "--size",
         type=int,
@@ -122,6 +124,11 @@ def main() -> None:
         report = engine.validate_dataset(request, dataset)
         validate_seconds = time.perf_counter() - validate_start
 
+        print(f"[perf_bench] size={size}: analyze (KPI/COGS)...", file=sys.stderr)
+        analyze_start = time.perf_counter()
+        result = engine.analyze(request, dataset)
+        analyze_seconds = time.perf_counter() - analyze_start
+
         print(f"[perf_bench] size={size}: dataset_digest...", file=sys.stderr)
         digest_start = time.perf_counter()
         build_input_summary(dataset, request)
@@ -135,19 +142,22 @@ def main() -> None:
                 "warning_count": len(report.warnings),
                 "build_dataset_seconds": round(build_seconds, 4),
                 "validate_dataset_seconds": round(validate_seconds, 4),
+                "analyze_seconds": round(analyze_seconds, 4),
+                "kpi_metric_count": len(result.metrics),
+                "result_warning_count": len(result.warnings),
                 "dataset_digest_seconds": round(digest_seconds, 4),
             }
         )
 
     report_payload = {
         "bench": "perf_bench",
-        "stage": "M0-placeholder",
+        "stage": "M1-baseline",
         "engine_version": engine.engine_version,
         "formula_version": engine.formula_version,
         "seed": args.seed,
         "runs": runs,
         "thresholds": None,
-        "note": "M0 不设阈值：M1 接入指标计算耗时阈值，M3 冻结性能基线。",
+        "note": "M1 基线不设硬门禁：阈值建议见 docs/m1-handover-b.md（实测留余量），M3 冻结。",
     }
     print(json.dumps(report_payload, ensure_ascii=False, indent=2))
 

@@ -1,0 +1,149 @@
+{
+  "validation": {
+    "valid": true,
+    "issue_codes": [],
+    "warning_codes": [
+      "PERIOD_MISMATCH",
+      "PERIOD_MISMATCH",
+      "PERIOD_MISMATCH",
+      "PERIOD_MISMATCH"
+    ],
+    "warning_codes_note": "SKU-1001 的 4 条历史事件（EVT-2001~EVT-2004，2026-05 月）move_date < start_date，各发一条 PERIOD_MISMATCH（历史事件照常参与期初重放）"
+  },
+  "metrics": {
+    "F-KPI-001": {
+      "value": "25",
+      "unit": "件",
+      "sample_count": 7,
+      "tolerance": "qty",
+      "derivation": "仅 SKU-1001 有历史：入库 20 → 盘点替换为 25（EVT-2002）→ 出库 10（EVT-2003）→ 冲销复原 +10（EVT-2004），期初 = 25；其余 6 个 SKU 空历史期初 0"
+    },
+    "F-KPI-002": {
+      "value": "73",
+      "unit": "件",
+      "sample_count": 7,
+      "tolerance": "qty",
+      "derivation": "28 + 0 + (-3) + 22 + 9 + 7 + 10：SKU-1002 清仓期末 0；SKU-1003 期末 -3 原样输出"
+    },
+    "F-KPI-003": {
+      "value": "31",
+      "unit": "件",
+      "sample_count": 7,
+      "tolerance": "qty",
+      "derivation": "12 + 10 + 8 + (-2) + 3 + 0 + 0：SKU-1004 退货 6 > 出库 4 → 净出库 -2 原样输出；SKU-1007 期内出库 6 被冲销（EVT-2603）归 0"
+    },
+    "F-KPI-004": {
+      "value": "0.571429",
+      "unit": "ratio",
+      "sample_count": 7,
+      "tolerance": "ratio",
+      "derivation": "分子 = 出库量 > 0 的 SKU 数 4（SKU-1001/1002/1003/1005）；分母 = 7（全部 SKU 期间有事件）；4/7 = 0.5714285714… → 6 位小数 HALF_UP"
+    },
+    "F-KPI-005": {
+      "value": "200.00",
+      "unit": "CNY",
+      "sample_count": 7,
+      "tolerance": "money",
+      "derivation": "84.00(28×3.00) + 0.00(期末 0) + (-6.00)((-3)×2.00) + 55.00(22×2.50) + 27.00(SKU-1005 unit_cost 缺失回退最近快照) + null(SKU-1006 全缺失，不计入合计) + 40.00(10×4.00)"
+    },
+    "F-COGS-001": {
+      "value": "38.50",
+      "unit": "CNY",
+      "sample_count": 7,
+      "tolerance": "money",
+      "derivation": "SKU-1001 多次入库加权 avg=(25×2.00+15×3.00)/40=2.375，COGS=12×2.375=28.50；+SKU-1002 15.00；SKU-1003 期内负余额 → COGS 置 0；+SKU-1004 退货冲减后 -5.00(6×2.50-4×2.50)；SKU-1005 出库无成本记录记 0；合计 28.50+15.00+0-5.00+0+0+0 = 38.50"
+    },
+    "F-KPI-006": {
+      "value": "0.280000",
+      "unit": "次/期间",
+      "sample_count": 7,
+      "tolerance": "ratio",
+      "derivation": "opening_value = 25×3.00 = 75.00（§3.5 口径：SKU-1001 最近携带成本的入库 EVT-2005 为 3.00）；closing_value = 200.00；avg = (75+200)/2 = 137.50；turnover = 38.50/137.50 = 0.28"
+    },
+    "F-KPI-007": {
+      "value": "103.571429",
+      "unit": "天",
+      "sample_count": 7,
+      "tolerance": "ratio",
+      "derivation": "period_days = (2026-06-30 − 2026-06-01).days = 29；29/0.28 = 103.5714285714… → 103.571429"
+    },
+    "F-KPI-008": {
+      "value": "68.290323",
+      "unit": "天",
+      "sample_count": 7,
+      "tolerance": "ratio",
+      "derivation": "daily_out = 31/29；coverage = 73/(31/29) = 73×29/31 = 2117/31 = 68.2903225806… → 68.290323"
+    }
+  },
+  "per_sku": {
+    "SKU-1001": {
+      "opening_qty": "25",
+      "closing_qty": "28",
+      "out_qty": "12",
+      "cogs": "28.50",
+      "inventory_value": "84.00"
+    },
+    "SKU-1002": {
+      "opening_qty": "0",
+      "closing_qty": "0",
+      "out_qty": "10",
+      "cogs": "15.00",
+      "inventory_value": "0.00"
+    },
+    "SKU-1003": {
+      "opening_qty": "0",
+      "closing_qty": "-3",
+      "out_qty": "8",
+      "cogs": "0",
+      "inventory_value": "-6.00"
+    },
+    "SKU-1004": {
+      "opening_qty": "0",
+      "closing_qty": "22",
+      "out_qty": "-2",
+      "cogs": "-5.00",
+      "inventory_value": "55.00"
+    },
+    "SKU-1005": {
+      "opening_qty": "0",
+      "closing_qty": "9",
+      "out_qty": "3",
+      "cogs": "0",
+      "inventory_value": "27.00"
+    },
+    "SKU-1006": {
+      "opening_qty": "0",
+      "closing_qty": "7",
+      "out_qty": "0",
+      "cogs": "0",
+      "inventory_value": null
+    },
+    "SKU-1007": {
+      "opening_qty": "0",
+      "closing_qty": "10",
+      "out_qty": "0",
+      "cogs": "0.00",
+      "inventory_value": "40.00"
+    }
+  },
+  "analyze_warnings": [
+    {"code": "PERIOD_MISMATCH", "fields": ["move_date"]},
+    {"code": "PERIOD_MISMATCH", "fields": ["move_date"]},
+    {"code": "PERIOD_MISMATCH", "fields": ["move_date"]},
+    {"code": "PERIOD_MISMATCH", "fields": ["move_date"]},
+    {"code": "NEGATIVE_BALANCE", "fields": ["SKU-1003", "WH-01", "2026-06-10", "-3"]},
+    {"code": "UNIT_COST_MISSING", "fields": ["SKU-1005"]},
+    {"code": "UNIT_COST_MISSING", "fields": ["SKU-1006"]},
+    {"code": "ANALYSIS_PLACEHOLDER", "fields": []}
+  ],
+  "tolerances": {
+    "money_abs": "0.01",
+    "money_rel": "1e-6",
+    "qty_abs": "0.001",
+    "qty_rel": "1e-9",
+    "ratio_abs": "1e-6",
+    "ratio_rel": "1e-6",
+    "abc_exact": true,
+    "note": "M1 指标层容差按 formula-spec §10：金额 abs≤0.01 或 rel≤1e-6；数量 abs≤0.001 或 rel≤1e-9；比率/天数 abs≤1e-6 或 rel≤1e-6（满足其一即通过）；Warning 按 code+fields 完全一致"
+  }
+}

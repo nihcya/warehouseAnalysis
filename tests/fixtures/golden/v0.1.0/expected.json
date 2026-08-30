@@ -4,11 +4,107 @@
     "issue_codes": [],
     "warning_codes": ["NEGATIVE_BALANCE", "PERIOD_MISMATCH"]
   },
+  "metrics": {
+    "F-KPI-001": {
+      "value": "0",
+      "unit": "件",
+      "sample_count": 3,
+      "tolerance": "qty",
+      "derivation": "空历史：全部 12 条流水 move_date >= 2026-06-01，期初重放余额为 0"
+    },
+    "F-KPI-002": {
+      "value": "162.5",
+      "unit": "件",
+      "sample_count": 3,
+      "tolerance": "qty",
+      "derivation": "73 + 60 + 29.5；SKU-0002 期内盘点（EVT-0008）将余额替换为实盘 60；EVT-0012（move_date=2026-06-30=end_date）不参与重放"
+    },
+    "F-KPI-003": {
+      "value": "67.5",
+      "unit": "件",
+      "sample_count": 3,
+      "tolerance": "qty",
+      "derivation": "SKU-0001: 30+2-5=27（出库+报废-退货）；SKU-0002: 20（调拨 EVT-0007 不计入）；SKU-0003: 15+5.5=20.5"
+    },
+    "F-KPI-004": {
+      "value": "1.000000",
+      "unit": "ratio",
+      "sample_count": 3,
+      "tolerance": "ratio",
+      "derivation": "3 个 SKU 出库量均 > 0，分母 = 3（全部期间有事件），3/3 = 1"
+    },
+    "F-KPI-005": {
+      "value": "356.60",
+      "unit": "CNY",
+      "sample_count": 3,
+      "tolerance": "money",
+      "derivation": "73×1.20 + 60×3.50 + 29.5×2.00 = 87.60 + 210.00 + 59.00（单位成本取各 SKU 最近一次携带 unit_cost 的入库）"
+    },
+    "F-COGS-001": {
+      "value": "143.40",
+      "unit": "CNY",
+      "sample_count": 3,
+      "tolerance": "money",
+      "derivation": "SKU-0001: 30×1.20 - 5×1.20 + 2×1.20 = 32.40（退货按当前 avg 冲减）；SKU-0002: 20×3.50 = 70.00；SKU-0003: (15+5.5)×2.00 = 41.00（移动加权平均）"
+    },
+    "F-KPI-006": {
+      "value": "0.804262",
+      "unit": "次/期间",
+      "sample_count": 3,
+      "tolerance": "ratio",
+      "derivation": "opening_value = 0（期初量全 0）；avg = (0+356.60)/2 = 178.30；turnover = 143.40/178.30 = 0.8042624788… → 6 位小数"
+    },
+    "F-KPI-007": {
+      "value": "36.057880",
+      "unit": "天",
+      "sample_count": 3,
+      "tolerance": "ratio",
+      "derivation": "period_days = (2026-06-30 - 2026-06-01).days = 29；29/0.8042624788… = 36.0578800… → 36.057880"
+    },
+    "F-KPI-008": {
+      "value": "69.814815",
+      "unit": "天",
+      "sample_count": 3,
+      "tolerance": "ratio",
+      "derivation": "daily_out = 67.5/29；coverage = 162.5/(67.5/29) = 162.5×29/67.5 = 69.8148148… → 69.814815"
+    }
+  },
+  "per_sku": {
+    "SKU-0001": {
+      "opening_qty": "0",
+      "closing_qty": "73",
+      "out_qty": "27",
+      "cogs": "32.40",
+      "inventory_value": "87.60"
+    },
+    "SKU-0002": {
+      "opening_qty": "0",
+      "closing_qty": "60",
+      "out_qty": "20",
+      "cogs": "70.00",
+      "inventory_value": "210.00"
+    },
+    "SKU-0003": {
+      "opening_qty": "0",
+      "closing_qty": "29.5",
+      "out_qty": "20.5",
+      "cogs": "41.00",
+      "inventory_value": "59.00"
+    }
+  },
+  "analyze_warnings": [
+    {"code": "NEGATIVE_BALANCE", "fields": ["quantity"]},
+    {"code": "PERIOD_MISMATCH", "fields": ["move_date"]},
+    {"code": "ANALYSIS_PLACEHOLDER", "fields": []}
+  ],
   "tolerances": {
     "money_abs": "0.01",
     "money_rel": "1e-6",
-    "ratio_abs": "1e-9",
+    "qty_abs": "0.001",
+    "qty_rel": "1e-9",
+    "ratio_abs": "1e-6",
+    "ratio_rel": "1e-6",
     "abc_exact": true,
-    "note": "M0 黄金数据冻结校验层；指标层数值随 M1 公式实现后补充"
+    "note": "M0 冻结校验层；M1 扩展指标层数值断言，容差按 formula-spec §10：金额 abs≤0.01 或 rel≤1e-6；数量 abs≤0.001 或 rel≤1e-9；比率/天数 abs≤1e-6 或 rel≤1e-6（满足其一即通过）；Warning 按 code+fields 完全一致"
   }
 }

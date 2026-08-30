@@ -53,5 +53,25 @@
       }
     ],
     "replenishment": []
+  },
+  "expected": {
+    "blocked": false,
+    "metrics": {
+      "F-KPI-001": {"value": "0", "unit": "件", "sample_count": 1, "tolerance": "qty"},
+      "F-KPI-002": {"value": "-5", "unit": "件", "sample_count": 1, "tolerance": "qty"},
+      "F-KPI-003": {"value": "15", "unit": "件", "sample_count": 1, "tolerance": "qty"},
+      "F-KPI-004": {"value": "1.000000", "unit": "ratio", "sample_count": 1, "tolerance": "ratio"},
+      "F-KPI-005": {"value": "-6.00", "unit": "CNY", "sample_count": 1, "tolerance": "money"},
+      "F-COGS-001": {"value": "0.00", "unit": "CNY", "sample_count": 1, "tolerance": "money"},
+      "F-KPI-006": {"value": "null", "unit": "次/期间", "sample_count": 1, "tolerance": "ratio", "reason": "avg_inventory_value_nonpositive"},
+      "F-KPI-007": {"value": "null", "unit": "天", "sample_count": 1, "tolerance": "ratio", "reason": "avg_inventory_value_nonpositive"},
+      "F-KPI-008": {"value": "null", "unit": "天", "sample_count": 1, "tolerance": "ratio", "reason": "nonpositive_closing"}
+    },
+    "analyze_warnings": [
+      {"code": "NEGATIVE_BALANCE", "fields": ["quantity"]},
+      {"code": "NEGATIVE_BALANCE", "fields": ["SKU-0001", "WH-01", "2026-06-05", "-5"]},
+      {"code": "ANALYSIS_PLACEHOLDER", "fields": []}
+    ],
+    "derivation": "期末为负（NEGATIVE_BALANCE）：期内入库 10 → 出库 15，重放期末 = -5（2026-06-05 首个负余额）；COGS 因期内负库存置 0（§3.6 边界 1）；库存价值 = -5×1.20 = -6.00；平均库存价值 (0+(-6.00))/2 = -3 ≤ 0 → 周转率/天数 null；期末 ≤ 0 → 覆盖天数 null；校验层（快照负库存）与计算层（重放负余额）各发一条 NEGATIVE_BALANCE"
   }
 }

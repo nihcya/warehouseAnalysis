@@ -5,7 +5,7 @@
 """
 
 #: 引擎版本
-ENGINE_VERSION = "0.1.0"
+ENGINE_VERSION = "0.2.0"
 
 #: 公式口径版本（口径冻结于 docs/formula-spec.md）
 FORMULA_VERSION = "0.1.0"

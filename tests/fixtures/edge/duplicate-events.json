@@ -44,5 +44,9 @@
     ],
     "snapshots": [],
     "replenishment": []
+  },
+  "expected": {
+    "blocked": true,
+    "derivation": "重复 event_id（EVT-DUP-0001 出现两次）触发 DUPLICATE_EVENT 阻断 issue（valid=false）：analyze 抛 DataValidationError，不产出任何指标（指标层无数值断言，阻断行为本身即冻结点）"
   }
 }

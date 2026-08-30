@@ -60,7 +60,9 @@ def _dataset() -> EngineDataset:
 
 def test_from_fixture_loads_analysis_result() -> None:
     engine = FakeEngine.from_fixture(FIXTURE_PATH)
-    assert engine.engine_version == "0.1.0-fake"
+    # 类属性随 FAKE_ENGINE_VERSION 演进（M1 起为 0.2.0-fake）；fixture JSON 的
+    # engine_version 字段是冻结返回值，由下方 keeps_other_fixture_fields 覆盖
+    assert engine.engine_version == "0.2.0-fake"
     assert engine.formula_version == "0.1.0"
 
 

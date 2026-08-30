@@ -1,4 +1,6 @@
-"""边界 fixture 参数化测试：记录 M0 当前行为。
+"""边界 fixture 参数化测试：校验层（M0 冻结）与指标层（M1 补充）。
+
+M0 校验层断言（不因 M1 扩展而破坏）：
 
 - empty：valid 且无 issue/警告；
 - negative-stock：NEGATIVE_BALANCE 非阻断警告；
@@ -6,6 +8,10 @@
 - invalid-unit：quantity scale=4 与 unit_cost scale=3 精度违规（阻断）；
 - boundary-dates：期间首日合法、end_date 当天触发 PERIOD_MISMATCH（左闭右开）；
 - zero-demand / missing-lot：M0 当前行为断言（无阻断、无警告）。
+
+M1 指标层断言（Task 4）：各 fixture JSON 内的 expected 段冻结手工推导的
+指标数值与 Warning 序列，按 formula-spec §10 容差执行；校验阻断的 fixture
+（blocked=true）断言 analyze 抛 DataValidationError、不产出指标。
 """
 
 from __future__ import annotations
@@ -17,6 +23,8 @@ from typing import Any
 import pytest
 from contracts import AnalysisRequest, EngineDataset
 from warehouse_engine import WarehouseEngine
+from warehouse_engine.calculators import inventory_kpi
+from warehouse_engine.errors import DataValidationError
 
 EDGE_DIR = Path(__file__).resolve().parents[2] / "tests" / "fixtures" / "edge"
 
@@ -29,6 +37,17 @@ EDGE_EXPECTATIONS: list[tuple[str, bool, list[str], list[str]]] = [
     ("invalid-unit.json", False, ["DATA_VALIDATION_FAILED", "DATA_VALIDATION_FAILED"], []),
     ("missing-lot.json", True, [], []),
     ("boundary-dates.json", True, [], ["PERIOD_MISMATCH"]),
+]
+
+#: 携带 M1 指标层预期（expected 段）的全部边界 fixture
+EDGE_METRIC_FIXTURES = [
+    "empty-dataset.json",
+    "zero-demand.json",
+    "negative-stock.json",
+    "duplicate-events.json",
+    "invalid-unit.json",
+    "missing-lot.json",
+    "boundary-dates.json",
 ]
 
 
@@ -58,6 +77,50 @@ def test_edge_fixture_current_behavior(
     assert report.valid is valid
     assert [issue.code.value for issue in report.issues] == issue_codes
     assert [w.code for w in report.warnings] == warning_codes
+
+
+@pytest.mark.parametrize(
+    "filename",
+    EDGE_METRIC_FIXTURES,
+    ids=EDGE_METRIC_FIXTURES,
+)
+def test_edge_fixture_analyze_metrics_match_expected(
+    filename: str,
+    tolerance_check,
+) -> None:
+    """M1 指标层：analyze 结果与 fixture expected 段的手工推导冻结值一致。
+
+    - blocked=true：校验阻断，analyze 抛 DataValidationError（无指标输出）；
+    - 其余：全部 9 个 KPI/COGS 指标按 §10 容差断言（null 值含 reason），
+      Warning 序列（code + fields）与冻结值完全一致。
+    """
+    payload = _load_edge(filename)
+    expected = payload["expected"]
+    request = AnalysisRequest.model_validate(payload["request"])
+    dataset = EngineDataset.model_validate(payload["dataset"])
+
+    if expected.get("blocked"):
+        with pytest.raises(DataValidationError):
+            WarehouseEngine().analyze(request, dataset)
+        return
+
+    result = WarehouseEngine().analyze(request, dataset)
+
+    by_id = {metric.formula_id: metric for metric in result.metrics}
+    assert set(by_id) == set(expected["metrics"]) == set(inventory_kpi.FORMULA_IDS)
+    for formula_id, item in expected["metrics"].items():
+        metric = by_id[formula_id]
+        assert metric.unit == item["unit"], formula_id
+        assert metric.sample_count == item["sample_count"], formula_id
+        if "reason" in item:
+            assert metric.reason == item["reason"], formula_id
+        else:
+            assert metric.reason is None, formula_id
+        tolerance_check(item["value"], str(metric.value), item["tolerance"])
+
+    assert [(w.code, w.fields) for w in result.warnings] == [
+        (item["code"], item["fields"]) for item in expected["analyze_warnings"]
+    ]
 
 
 def test_empty_dataset_valid_without_issues() -> None:

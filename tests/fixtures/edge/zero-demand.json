@@ -50,5 +50,23 @@
         "service_level": "0.95"
       }
     ]
+  },
+  "expected": {
+    "blocked": false,
+    "metrics": {
+      "F-KPI-001": {"value": "0", "unit": "件", "sample_count": 1, "tolerance": "qty"},
+      "F-KPI-002": {"value": "50", "unit": "件", "sample_count": 1, "tolerance": "qty"},
+      "F-KPI-003": {"value": "0", "unit": "件", "sample_count": 1, "tolerance": "qty"},
+      "F-KPI-004": {"value": "0.000000", "unit": "ratio", "sample_count": 1, "tolerance": "ratio"},
+      "F-KPI-005": {"value": "60.00", "unit": "CNY", "sample_count": 1, "tolerance": "money"},
+      "F-COGS-001": {"value": "0.00", "unit": "CNY", "sample_count": 1, "tolerance": "money"},
+      "F-KPI-006": {"value": "null", "unit": "次/期间", "sample_count": 1, "tolerance": "ratio", "reason": "turnover_nonpositive"},
+      "F-KPI-007": {"value": "null", "unit": "天", "sample_count": 1, "tolerance": "ratio", "reason": "turnover_nonpositive"},
+      "F-KPI-008": {"value": "null", "unit": "天", "sample_count": 1, "tolerance": "ratio", "reason": "no_outflow"}
+    },
+    "analyze_warnings": [
+      {"code": "ANALYSIS_PLACEHOLDER", "fields": []}
+    ],
+    "derivation": "期间无出库：出库量 0、COGS 0.00；动销率分子 0/分母 1（期末 50>0）；库存价值 50×1.20=60.00；平均库存价值 (0+60)/2=30>0 但 turnover=0/30=0 ≤ 0 → null（turnover_nonpositive）；daily_out=0 → 覆盖天数 null（no_outflow）（§3.7/§3.8 边界）"
   }
 }

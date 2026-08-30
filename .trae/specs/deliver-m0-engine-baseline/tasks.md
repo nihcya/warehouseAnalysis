@@ -14,7 +14,7 @@
   - [x] 2.2 ABC/库龄/呆滞口径：排序指标、累计占比边界（80%/95%）、并列值归属；库龄左闭右开区间、缺失日期 Warning；呆滞观察窗口与排除条件（§4-6）
   - [x] 2.3 补货/预测/误差口径：安全库存与服务水平假设、参数缺失返回 PARAM_MISSING；预测训练/预测窗口、MAPE/MAE/RMSE 定义、样本不足降级规则（§7-8）
   - [x] 2.4 为每个口径分配公式标识与版本（F-* 编号）；明确"未冻结口径不得进入默认结果"
-  - [ ] 2.5 与 A 走查一遍口径文档，确认无 UI 侧自行实现公式的空间 —— **草案完成，走查签字待 A（见 docs/m0-handover-b.md §8）**
+  - [x] 2.5 与 A 走查一遍口径文档，确认无 UI 侧自行实现公式的空间 —— **已完成：A/B 双方 2026-08-29 签字，formula-spec 0.1.0 转冻结（提交 c62917b，feature/b-m1-kpi-engine 分支）**
 
 - [x] Task 3: warehouse-engine 包骨架（uv workspace）
   - [x] 3.1 根 `pyproject.toml` 配置 uv workspace；`packages/warehouse-engine` 独立包，依赖仅 contracts-python + 锁版本的 pandas/numpy/scipy/statsmodels + 标准库

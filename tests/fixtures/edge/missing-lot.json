@@ -53,5 +53,23 @@
       }
     ],
     "replenishment": []
+  },
+  "expected": {
+    "blocked": false,
+    "metrics": {
+      "F-KPI-001": {"value": "0", "unit": "件", "sample_count": 1, "tolerance": "qty"},
+      "F-KPI-002": {"value": "12", "unit": "件", "sample_count": 1, "tolerance": "qty"},
+      "F-KPI-003": {"value": "8", "unit": "件", "sample_count": 1, "tolerance": "qty"},
+      "F-KPI-004": {"value": "1.000000", "unit": "ratio", "sample_count": 1, "tolerance": "ratio"},
+      "F-KPI-005": {"value": "14.40", "unit": "CNY", "sample_count": 1, "tolerance": "money"},
+      "F-COGS-001": {"value": "9.60", "unit": "CNY", "sample_count": 1, "tolerance": "money"},
+      "F-KPI-006": {"value": "1.333333", "unit": "次/期间", "sample_count": 1, "tolerance": "ratio"},
+      "F-KPI-007": {"value": "21.750000", "unit": "天", "sample_count": 1, "tolerance": "ratio"},
+      "F-KPI-008": {"value": "43.500000", "unit": "天", "sample_count": 1, "tolerance": "ratio"}
+    },
+    "analyze_warnings": [
+      {"code": "ANALYSIS_PLACEHOLDER", "fields": []}
+    ],
+    "derivation": "缺批次主路径（lot_id 不参与 M1 计算）：入库 20 @1.20 → 出库 8，期末 12、出库量 8、COGS = 8×1.20 = 9.60；库存价值 = 12×1.20 = 14.40（unit_cost 已知，不回退快照）；平均库存价值 (0+14.40)/2 = 7.20 → 周转率 = 9.60/7.20 = 1.333333；周转天数 = 29/1.3333… = 29×7.2/9.6 = 21.75；覆盖天数 = 12×29/8 = 43.5"
   }
 }

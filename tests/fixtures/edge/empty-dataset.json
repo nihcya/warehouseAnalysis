@@ -14,5 +14,23 @@
     "movements": [],
     "snapshots": [],
     "replenishment": []
+  },
+  "expected": {
+    "blocked": false,
+    "metrics": {
+      "F-KPI-001": {"value": "0", "unit": "件", "sample_count": 0, "tolerance": "qty"},
+      "F-KPI-002": {"value": "0", "unit": "件", "sample_count": 0, "tolerance": "qty"},
+      "F-KPI-003": {"value": "0", "unit": "件", "sample_count": 0, "tolerance": "qty"},
+      "F-KPI-004": {"value": "null", "unit": "ratio", "sample_count": 0, "tolerance": "ratio", "reason": "empty_dataset"},
+      "F-KPI-005": {"value": "0.00", "unit": "CNY", "sample_count": 0, "tolerance": "money"},
+      "F-COGS-001": {"value": "0.00", "unit": "CNY", "sample_count": 0, "tolerance": "money"},
+      "F-KPI-006": {"value": "null", "unit": "次/期间", "sample_count": 0, "tolerance": "ratio", "reason": "avg_inventory_value_nonpositive"},
+      "F-KPI-007": {"value": "null", "unit": "天", "sample_count": 0, "tolerance": "ratio", "reason": "avg_inventory_value_nonpositive"},
+      "F-KPI-008": {"value": "null", "unit": "天", "sample_count": 0, "tolerance": "ratio", "reason": "nonpositive_closing"}
+    },
+    "analyze_warnings": [
+      {"code": "ANALYSIS_PLACEHOLDER", "fields": []}
+    ],
+    "derivation": "空数据集：参与统计 SKU 数 0，总量指标为 0；动销率分母为 0 输出 null（empty_dataset）；平均库存价值 0 不为正 → 周转率/天数 null；期末 0 → 覆盖天数 null（§3.4/§3.7/§3.8 边界）"
   }
 }

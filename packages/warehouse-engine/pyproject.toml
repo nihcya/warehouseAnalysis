@@ -1,7 +1,7 @@
 [project]
 name = "warehouse-engine"
-version = "0.1.0"
-description = "仓库品类分析引擎：校验、KPI/ABC/库龄/补货/预测/基准计算（M0 基线）"
+version = "0.2.0"
+description = "仓库品类分析引擎：校验、KPI/ABC/库龄/补货/预测/基准计算（M1：KPI/COGS 实装）"
 requires-python = ">=3.11,<3.12"
 dependencies = [
     "contracts-python",
