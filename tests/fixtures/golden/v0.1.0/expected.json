@@ -2,7 +2,10 @@
   "validation": {
     "valid": true,
     "issue_codes": [],
-    "warning_codes": ["NEGATIVE_BALANCE", "PERIOD_MISMATCH"]
+    "warning_codes": [
+      "NEGATIVE_BALANCE",
+      "PERIOD_MISMATCH"
+    ]
   },
   "metrics": {
     "F-KPI-001": {
@@ -67,6 +70,22 @@
       "sample_count": 3,
       "tolerance": "ratio",
       "derivation": "daily_out = 67.5/29；coverage = 162.5/(67.5/29) = 162.5×29/67.5 = 69.8148148… → 69.814815"
+    },
+    "F-ABC-001": {
+      "value": "3",
+      "unit": "SKU",
+      "sample_count": 3,
+      "tolerance": "qty",
+      "reason": null,
+      "derivation": "参与分类的 SKU 数 = 3。amt = max(0, out_qty) × §3.5 单位成本：SKU-0001 = (30+2−5) × 1.20 = 32.40、SKU-0002 = 20 × 3.50 = 70.00、SKU-0003 = 20.5 × 2.00 = 41.00；Σ = 143.40；降序 70.00/41.00/32.40 → 累计 0.488/0.774/1.000 → A/B/C"
+    },
+    "F-BM-001": {
+      "value": "null",
+      "unit": "ratio",
+      "sample_count": 0,
+      "tolerance": "ratio",
+      "reason": "benchmark_unavailable",
+      "derivation": "parameters 未注入 benchmarks，无可用基准（§9：禁止经验值兜底）"
     }
   },
   "per_sku": {
@@ -93,9 +112,53 @@
     }
   },
   "analyze_warnings": [
-    {"code": "NEGATIVE_BALANCE", "fields": ["quantity"]},
-    {"code": "PERIOD_MISMATCH", "fields": ["move_date"]},
-    {"code": "ANALYSIS_PLACEHOLDER", "fields": []}
+    {
+      "code": "NEGATIVE_BALANCE",
+      "fields": [
+        "quantity"
+      ]
+    },
+    {
+      "code": "PERIOD_MISMATCH",
+      "fields": [
+        "move_date"
+      ]
+    },
+    {
+      "code": "PARAM_MISSING",
+      "fields": [
+        "SKU-0003",
+        "lead_time_days"
+      ]
+    },
+    {
+      "code": "INSUFFICIENT_SAMPLES",
+      "fields": [
+        "SKU-0001",
+        "5"
+      ]
+    },
+    {
+      "code": "INSUFFICIENT_SAMPLES",
+      "fields": [
+        "SKU-0002",
+        "5"
+      ]
+    },
+    {
+      "code": "INSUFFICIENT_SAMPLES",
+      "fields": [
+        "SKU-0003",
+        "5"
+      ]
+    },
+    {
+      "code": "BENCHMARK_UNAVAILABLE",
+      "fields": [
+        "",
+        "全国"
+      ]
+    }
   ],
   "tolerances": {
     "money_abs": "0.01",
@@ -105,6 +168,10 @@
     "ratio_abs": "1e-6",
     "ratio_rel": "1e-6",
     "abc_exact": true,
-    "note": "M0 冻结校验层；M1 扩展指标层数值断言，容差按 formula-spec §10：金额 abs≤0.01 或 rel≤1e-6；数量 abs≤0.001 或 rel≤1e-9；比率/天数 abs≤1e-6 或 rel≤1e-6（满足其一即通过）；Warning 按 code+fields 完全一致"
-  }
+    "note": "M0 冻结校验层；M1 扩展指标层数值断言，容差按 formula-spec §10：金额 abs≤0.01 或 rel≤1e-6；数量 abs≤0.001 或 rel≤1e-9；比率/天数 abs≤1e-6 或 rel≤1e-6（满足其一即通过）；Warning 按 code+fields 完全一致",
+    "aging_bucket_exact": true,
+    "stale_exact": true
+  },
+  "frozen_scope": "M1 冻结的 KPI/COGS 九项指标层数值（手工推导）保留不变。M2 起 analyze 额外输出九项指标，其中仅结构性可推导的项在此冻结——F-ABC-001（参与分类的 SKU 数）与 F-BM-001（无基准注入 → null + benchmark_unavailable）；F-AGE-001 / F-STALE-001 / F-FCST-001~002 与F-REPL-001~003 的数值口径由 golden/v0.3.0（ABC/库龄/呆滞）与 golden/v0.4.0（补货/预测/基准）冻结。analyze_warnings 已按 M2 移除 ANALYSIS_PLACEHOLDER 并补入新计算器的告警。全部数值禁止以引擎输出回填。",
+  "analyze_warnings_note": "顺序固定为 校验层 → KPI → abc-aging → 补货 → 预测 → 基准，各组内按 sku_id 字典序。共 7 条：校验层负快照与期末当天事件（EVT-0012，move_date = end_date）、SKU-0003 无补货记录导致 lead_time_days 缺失、3 条有效需求期数 5 < 12、1 条无可用基准。三个 SKU 期间均有出库金额且均有入库事件，故无 NO_OUTFLOW / DATE_MISSING"
 }
