@@ -109,7 +109,9 @@ def test_control_meta_upgrade_downgrade_roundtrip(postgres_url: str) -> None:
             schema_version = connection.execute(
                 text(f'SELECT value FROM "{schema}".control_meta WHERE key = \'db_schema_version\'')
             ).scalar_one()
-            assert schema_version == "control-0001"
+            # upgrade head 运行全部迁移（0001→0004），0004 把版本号升到 control-0004；
+            # 断言最终版本，避免后续迁移新增时测试再次漂移。
+            assert schema_version == "control-0004"
 
         command.downgrade(cfg, "base")
 
