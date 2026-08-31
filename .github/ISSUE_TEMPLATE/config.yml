@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 开发规划与协作需求文档
+    url: https://github.com/nihcya/warehouseAnalysis/blob/master/docs/%E5%BC%80%E5%8F%91%E8%A7%84%E5%88%92%E4%B8%8E%E5%8D%8F%E4%BD%9C%E9%9C%80%E6%B1%82%E6%96%87%E6%A1%A3.md
+    about: 22 协作流程、23 交接物清单
