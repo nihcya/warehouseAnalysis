@@ -1,0 +1,44 @@
+name: 跨侧交接任务
+description: A/B 双侧交接的联调、对接、证据项（如 handover-b 6）
+title: "[handover] "
+labels: ["handover"]
+body:
+  - type: dropdown
+    id: owner
+    attributes:
+      label: 负责方
+      options:
+        - side-A（平台框架）
+        - side-B（引擎 Skill）
+    validations:
+      required: true
+  - type: dropdown
+    id: milestone
+    attributes:
+      label: 里程碑
+      options: [M0, M1, M2, M3, M4, M5, M6, M7, M8]
+    validations:
+      required: true
+  - type: input
+    id: source
+    attributes:
+      label: 来源文档/章节
+      placeholder: "如 docs/m2-handover-b.md 6.1"
+    validations:
+      required: true
+  - type: textarea
+    id: task
+    attributes:
+      label: 交接内容
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: 验收标准
+    validations:
+      required: true
+  - type: textarea
+    id: deps
+    attributes:
+      label: 依赖/前置
