@@ -30,12 +30,15 @@ from .domain.dataset_provider import DatasetProvider
 from .domain.engine_provider import EngineProvider
 from .domain.result_store import ResultStore
 from .infrastructure.api_client.client import OfflineApiClient
+from .infrastructure.api_client.http_client import HttpApiClient
+from .infrastructure.api_client.token_store import TokenStore
 from .infrastructure.backup.backup_service import BackupService
 from .infrastructure.db.dataset_adapter import SqliteDatasetAdapter
 from .infrastructure.db.result_store import SqlResultStore
 from .infrastructure.engine_adapter.providers import FakeEngineProvider, LocalEngineProvider
 from .infrastructure.report.exporter import ReportExporter
 from .presentation.main_window import MainWindow
+from .workers.status_stream_worker import StatusStreamWorker
 
 #: 引擎选择环境变量（fake | local，缺省 fake，仅组合根读取）
 ENGINE_ENV = "WORKBENCH_ENGINE"
@@ -51,6 +54,18 @@ FAKE_FIXTURE_PATH = REPO_ROOT / "tests" / "fixtures" / "fake-analysis.json"
 
 #: local-data 包根（Alembic 迁移脚本所在处）
 LOCAL_DATA_DIR = REPO_ROOT / "local-data"
+
+#: 控制平面服务地址环境变量（默认 http://localhost:8000）
+API_URL_ENV = "WORKBENCH_API_URL"
+
+#: 默认控制平面地址
+DEFAULT_API_URL = "http://localhost:8000"
+
+#: 离线模式选择环境变量（=1 时使用离线占位客户端，用于测试场景）
+OFFLINE_ENV = "WORKBENCH_OFFLINE"
+
+#: SSE 后台线程停止等待上限（毫秒）
+WORKER_STOP_TIMEOUT_MS = 5000
 
 
 def create_engine_provider() -> EngineProvider:
@@ -75,8 +90,24 @@ def create_dataset_provider(
     return SqliteDatasetAdapter(session_factory)
 
 
+def _seed_default_warehouse(session_factory: sessionmaker[Session]) -> None:
+    """迁移完成后预置 WH-01 基础仓库（幂等）。
+
+    事件导入的存在性校验依赖 warehouse 表至少有 WH-01；空库迁移后
+    自动种子，避免首次导入库存事件 CSV 时每行 WAREHOUSE_NOT_FOUND。
+    """
+    from local_data.repository import MasterDataRepository
+
+    repo = MasterDataRepository(session_factory)
+    if repo.get_warehouse_by_warehouse_id("WH-01") is None:
+        repo.add_warehouse(warehouse_id="WH-01", name="主仓")
+
+
 def create_session_factory(data_dir: Path | None = None) -> sessionmaker[Session]:
-    """连接本地 SQLite（先 Alembic 迁移到 head），返回共享会话工厂。"""
+    """连接本地 SQLite（先 Alembic 迁移到 head），返回共享会话工厂。
+
+    迁移完成后自动种子 WH-01 基础仓库（幂等），保证空库首启即可导入事件。
+    """
     from alembic import command
     from alembic.config import Config
     from local_data.connection import connect, database_url, resolve_data_dir
@@ -87,6 +118,7 @@ def create_session_factory(data_dir: Path | None = None) -> sessionmaker[Session
     cfg.set_main_option("sqlalchemy.url", database_url(resolved))
     command.upgrade(cfg, "head")
     _engine, session_factory = connect(resolved)
+    _seed_default_warehouse(session_factory)
     return session_factory
 
 
@@ -126,6 +158,23 @@ def _sibling_dir(data_dir: Path, name: str) -> Path:
     return data_dir.parent / name
 
 
+def create_api_client() -> HttpApiClient | OfflineApiClient:
+    """按环境变量组装控制平面客户端（组合根分支）。
+
+    ``WORKBENCH_OFFLINE=1`` 时返回离线占位客户端（测试场景）；否则读取
+    ``WORKBENCH_API_URL``（默认 ``http://localhost:8000``）创建 ``HttpApiClient``，
+    令牌持久化使用与本地库相同的数据目录逻辑（尊重 ``WORKBENCH_DATA_DIR``，
+    便于测试隔离）。
+    """
+    if os.environ.get(OFFLINE_ENV, "").strip() == "1":
+        return OfflineApiClient()
+    base_url = os.environ.get(API_URL_ENV, DEFAULT_API_URL).strip() or DEFAULT_API_URL
+    from local_data.connection import resolve_data_dir
+
+    token_store = TokenStore(data_dir=resolve_data_dir(None))
+    return HttpApiClient(base_url=base_url, token_store=token_store)
+
+
 def main() -> int:
     """组装依赖并启动 PySide6 主窗口。"""
     app = QApplication(sys.argv)
@@ -137,16 +186,35 @@ def main() -> int:
     import_manager = CsvImportManager(session_factory)
     report_manager = create_report_export_manager(session_factory)
     backup_manager = create_backup_manager(session_factory)
+    api_client = create_api_client()
+    # SSE 状态流后台线程（登录成功后启动，信号已连入 StatusCard）
+    status_worker = StatusStreamWorker(api_client)
     window = MainWindow(
         use_case,
         store,
-        api_client=OfflineApiClient(),
+        api_client=api_client,
         import_manager=import_manager,
         report_manager=report_manager,
         backup_manager=backup_manager,
+        status_worker=status_worker,
     )
+    # 离线占位客户端（测试场景）直接进入离线模式，跳过登录检查与 SSE
+    if isinstance(api_client, HttpApiClient):
+        # 登录检查：有效令牌静默放行，否则弹出登录对话框
+        logged_in = window.check_login_on_startup(api_client)
+        if logged_in:
+            # 登录成功：自动注册设备 + 刷新状态 + 启动 SSE 后台线程
+            window.auto_register_device(api_client)
+            window.refresh_status(api_client)
+            status_worker.start()
+        # 登录取消/控制平面不可达 → 离线模式（状态栏已明示“离线”），不阻断本地操作
     window.show()
-    return app.exec()
+    exit_code = app.exec()
+    # 窗口关闭后停止 SSE 后台线程
+    if status_worker.isRunning():
+        status_worker.stop()
+        status_worker.wait(WORKER_STOP_TIMEOUT_MS)
+    return exit_code
 
 
 if __name__ == "__main__":
