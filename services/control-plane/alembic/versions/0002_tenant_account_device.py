@@ -46,13 +46,14 @@ DEVICE_STATUS_VALUES: tuple[str, ...] = (
     "REVOKED",
 )
 
-#: 本迁移新增的控制库枚举种子：kind -> 枚举值集合
+#: 本迁移新增的控制库枚举种子：kind -> 枚举值集合。
+#: 注意：``device_status`` 已由 0001_control_meta 播种，此处不得重复插入
+#: （control_enum.code 全局唯一，重复会导致 upgrade 0002 唯一约束冲突）。
 SEED_ENUMS: dict[str, tuple[str, ...]] = {
     "tenant_status": TENANT_STATUS_VALUES,
     "account_status": ACCOUNT_STATUS_VALUES,
     "account_role": ACCOUNT_ROLE_VALUES,
     "client_type": CLIENT_TYPE_VALUES,
-    "device_status": DEVICE_STATUS_VALUES,
 }
 
 def upgrade() -> None:
