@@ -1,0 +1,39 @@
+name: 功能/需求
+description: 新功能或需求落地（对应开发需求文档某章节）
+title: "[feat] "
+body:
+  - type: dropdown
+    id: owner
+    attributes:
+      label: 负责方
+      options:
+        - side-A（平台框架）
+        - side-B（引擎 Skill）
+    validations:
+      required: true
+  - type: dropdown
+    id: milestone
+    attributes:
+      label: 里程碑
+      options: [M0, M1, M2, M3, M4, M5, M6, M7, M8]
+    validations:
+      required: true
+  - type: input
+    id: source
+    attributes:
+      label: 需求来源
+      placeholder: "如 开发需求-B引擎Skill.md 7"
+    validations:
+      required: true
+  - type: textarea
+    id: desc
+    attributes:
+      label: 需求描述
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: 验收标准
+    validations:
+      required: true
