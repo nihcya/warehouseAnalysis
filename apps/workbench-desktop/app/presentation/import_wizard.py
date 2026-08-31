@@ -40,6 +40,7 @@ from PySide6.QtWidgets import (
 )
 
 from ..application.import_manager import (
+    ERROR_CODE_LABELS,
     EVENT_OPTIONAL_FIELDS,
     EVENT_REQUIRED_FIELDS,
     IMPORT_TYPE_EVENTS,
@@ -443,6 +444,18 @@ class ExecutePage(QWizardPage):
         if snapshot is None:
             return None
         import_type, mapping = self._wizard.mapping_page.collect_mapping()
+        # 事件导入前置依赖检测：SKU 与仓库表均需有数据，
+        # 避免全行 SKU_NOT_FOUND / WAREHOUSE_NOT_FOUND（在创建批次之前阻断）
+        if import_type == IMPORT_TYPE_EVENTS:
+            sku_count, warehouse_count = (
+                self._wizard.manager.event_prerequisite_counts()
+            )
+            if sku_count == 0:
+                self._failure_message = "请先导入 SKU 主数据后再导入库存事件"
+                return None
+            if warehouse_count == 0:
+                self._failure_message = "仓库数据缺失，请先创建仓库或导入主数据"
+                return None
         try:
             outcome = self._wizard.manager.run_import(
                 path=snapshot.path, import_type=import_type, mapping=mapping
@@ -489,23 +502,38 @@ class ErrorPage(QWizardPage):
         self._wizard = wizard
 
         self.count_label = QLabel("")
+        #: 错误码分布统计标签（无错误行时隐藏）
+        self.distribution_label = QLabel("")
+        self.distribution_label.setWordWrap(True)
+        self.distribution_label.setVisible(False)
         self.error_table = QTableWidget(0, len(ERROR_COLUMNS))
         self.error_table.setHorizontalHeaderLabels(list(ERROR_COLUMNS))
         self.error_table.horizontalHeader().setStretchLastSection(True)
 
         layout = QVBoxLayout(self)
         layout.addWidget(self.count_label)
+        layout.addWidget(self.distribution_label)
         layout.addWidget(self.error_table, 1)
 
     def initializePage(self) -> None:
-        """进入页面时按批次读取错误明细并填充表格。"""
+        """进入页面时按批次读取错误明细并填充表格与错误码分布。"""
         batch_id = self._wizard.last_batch_id
         self.error_table.setRowCount(0)
+        self.distribution_label.setVisible(False)
         if batch_id is None:
             self.count_label.setText("无导入结果")
             return
         records = self._wizard.manager.list_errors(batch_id)
         self.count_label.setText(f"共 {len(records)} 条错误行")
+        # 错误码分布统计（按中文标签 + 英文码展示，无错误行时不显示）
+        result = self._wizard.import_result
+        if isinstance(result, ImportRunSummary) and result.error_summary:
+            parts = [
+                f"{ERROR_CODE_LABELS.get(code, code)}({code}): {count}"
+                for code, count in result.error_summary.items()
+            ]
+            self.distribution_label.setText("错误码分布：" + "、".join(parts))
+            self.distribution_label.setVisible(True)
         self.error_table.setRowCount(len(records))
         for row, record in enumerate(records):
             cells = (

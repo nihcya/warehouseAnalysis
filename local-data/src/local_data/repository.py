@@ -26,7 +26,7 @@ from decimal import Decimal
 from typing import Any
 
 from contracts import AnalysisResult
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session, sessionmaker
 
 from local_data.models import (
@@ -276,6 +276,18 @@ class MasterDataRepository:
             return session.execute(
                 select(WarehouseRow).where(WarehouseRow.warehouse_id == warehouse_id)
             ).scalar_one_or_none()
+
+    def count_skus(self) -> int:
+        """SKU 总行数（事件导入前置依赖检测用）。"""
+        with self._session_factory() as session:
+            return session.execute(select(func.count()).select_from(SkuRow)).scalar_one()
+
+    def count_warehouses(self) -> int:
+        """仓库总行数（事件导入前置依赖检测用）。"""
+        with self._session_factory() as session:
+            return session.execute(
+                select(func.count()).select_from(WarehouseRow)
+            ).scalar_one()
 
     def add_location(
         self,

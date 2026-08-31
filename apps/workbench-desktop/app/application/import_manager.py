@@ -27,7 +27,7 @@ import csv
 import hashlib
 import uuid
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import date
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
@@ -88,6 +88,19 @@ _SUGGESTIONS: Mapping[str, str] = {
     ERROR_WAREHOUSE_NOT_FOUND: "先在主数据中建立该仓库，再导入库存事件",
     ERROR_REQUIRED_MISSING: "必填字段不能为空",
     ERROR_SKU_DUPLICATE: "SKU 已存在（M1 不支持覆盖更新，请勿重复导入）",
+}
+
+#: 错误码的中文简短标签（错误码分布统计展示用）
+ERROR_CODE_LABELS: Mapping[str, str] = {
+    ERROR_QUANTITY_INVALID: "数量非法",
+    ERROR_SKU_NOT_FOUND: "SKU 不存在",
+    ERROR_DATE_INVALID: "日期非法",
+    ERROR_MOVE_TYPE_INVALID: "事件类型非法",
+    ERROR_DECIMAL_INVALID: "数值非法",
+    ERROR_UNIT_COST_INVALID: "单位成本非法",
+    ERROR_WAREHOUSE_NOT_FOUND: "仓库不存在",
+    ERROR_REQUIRED_MISSING: "必填字段缺失",
+    ERROR_SKU_DUPLICATE: "SKU 重复",
 }
 
 #: 主数据导入必填契约字段（缺映射即阻断）
@@ -176,6 +189,8 @@ class ImportRunSummary:
     inserted: int
     skipped: int
     error_count: int
+    #: 错误码分布（按 error_code 分组计数，无错误行为空字典）
+    error_summary: dict[str, int] = field(default_factory=dict)
 
     @property
     def completed(self) -> bool:
@@ -328,6 +343,14 @@ class CsvImportManager:
             for row in self._errors.list_errors(batch_id)
         ]
 
+    def event_prerequisite_counts(self) -> tuple[int, int]:
+        """事件导入前置依赖检测：返回 (SKU 行数, 仓库行数)。
+
+        事件导入依赖 SKU 与仓库主数据（外键事实保护）；
+        任一为空时调用方应阻断导入并提示用户先导主数据。
+        """
+        return self._master.count_skus(), self._master.count_warehouses()
+
     # ------------------------------------------------------------------
     # 导入执行
     # ------------------------------------------------------------------
@@ -391,6 +414,12 @@ class CsvImportManager:
             self._batches.fail_batch(batch_id)
             status = IMPORT_STATUS_FAILED
 
+        # 错误码分布统计（按 error_code 分组计数）
+        error_summary: dict[str, int] = {}
+        for record in errors:
+            code = record.error_code
+            error_summary[code] = error_summary.get(code, 0) + 1
+
         return ImportRunSummary(
             batch_id=batch_id,
             status=status,
@@ -398,6 +427,7 @@ class CsvImportManager:
             inserted=inserted,
             skipped=skipped,
             error_count=error_count,
+            error_summary=error_summary,
         )
 
     # ------------------------------------------------------------------
