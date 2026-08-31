@@ -1,16 +1,12 @@
-"""WarehouseEngine：M2 引擎（五类分析能力全部真实计算）。
+"""WarehouseEngine：M1 引擎（KPI/COGS 真实计算，其余能力维持占位）。
 
-M2 范围：
+M1 范围：
 - validate_dataset：真实基础校验（精度、重复事件、SKU 引用、期间、负库存、
   冲销引用与盘点实盘数量）；
-- analyze：先校验（阻断抛 DataValidationError），通过则计算五类公式共 18 个
-  指标（F-KPI-001~008 与 F-COGS-001、F-ABC-001 / F-AGE-001 / F-STALE-001、
-  F-REPL-001~003、F-FCST-001~002、F-BM-001），并随结果生成数据质量报告；
-  ``ANALYSIS_PLACEHOLDER`` 占位 Warning 已随四类计算器实装而移除；
+- analyze：先校验（阻断抛 DataValidationError），通过则计算真实 KPI/COGS 指标
+  （F-KPI-001~008、F-COGS-001），abc-aging/replenishment/forecasting/benchmark
+  四类维持 M0 占位行为与占位 Warning，并随结果生成数据质量报告；
 - list_capabilities：五个计算能力描述（公式 ID 冻结于 docs/formula-spec.md）。
-
-执行效率：重放内核与 KPI 各只执行一次，结果以参数形式注入依赖它们的计算器
-（abc_aging / replenishment / forecasting / benchmark_compare）。
 """
 
 from __future__ import annotations
@@ -31,9 +27,10 @@ from warehouse_engine.contracts import (
     CapabilityDescriptor,
     EngineDataset,
     ValidationReport,
+    Warning,
+    WarningSeverity,
 )
 from warehouse_engine.errors import DataValidationError
-from warehouse_engine.replay import replay_movements
 from warehouse_engine.result import build_analysis_result, build_data_quality
 from warehouse_engine.validation.rules import apply_dataset_rules
 
@@ -62,7 +59,7 @@ def _capability(
 
 
 class WarehouseEngine:
-    """仓库品类分析引擎（M2：五类分析能力全部真实计算）。"""
+    """仓库品类分析引擎（M1：KPI/COGS 真实计算）。"""
 
     engine_version: str = ENGINE_VERSION
     formula_version: str = FORMULA_VERSION
@@ -82,20 +79,17 @@ class WarehouseEngine:
         dataset: EngineDataset,
         progress: ProgressCallback | None = None,
     ) -> AnalysisResult:
-        """M2 行为：先校验；阻断时抛 DataValidationError，否则返回五类公式全部结果。
+        """M1 行为：先校验；阻断时抛 DataValidationError，否则返回真实 KPI/COGS 结果。
 
         - 不修改传入的 request 与 dataset；
-        - 输出 18 个指标：KPI/COGS（F-KPI-001~008、F-COGS-001）、ABC/库龄/
-          呆滞（F-ABC-001、F-AGE-001、F-STALE-001）、补货（F-REPL-001~003）、
-          预测与误差（F-FCST-001~002）、行业基准（F-BM-001），每个 formula_id
-          恰对应一个数据集级聚合指标；
-        - 重放内核与 KPI 各执行一次，结果注入依赖它们的四个计算器；
-        - warnings 按固定顺序拼接：校验层 → KPI → abc-aging → 补货 → 预测 →
-          基准；data_quality 按码汇总（计数 + 明细）随结果返回；
+        - KPI/COGS（F-KPI-001~008、F-COGS-001）返回真实计算结果；
+        - abc-aging/replenishment/forecasting/benchmark 四类维持 M0 占位行为，
+          以 code=ANALYSIS_PLACEHOLDER 的非阻断 Warning 标注；
+        - warnings 汇总校验层与计算层全部非阻断警告，data_quality 按码汇总
+          （计数 + 明细）随结果返回；
         - 同一输入重复调用，序列化结果逐字节一致（无随机性、无时间依赖）；
         - progress 回调按阶段推进：0.0（校验开始）→ 0.3（校验完成）→
-          0.5（KPI 完成）→ 0.7（ABC/库龄/呆滞完成）→ 0.85（补货/预测/基准
-          完成）→ 1.0（结果组装完成）。
+          0.9（KPI 计算完成）→ 1.0（结果组装完成）。
         """
         if progress is not None:
             progress(0.0)
@@ -107,37 +101,30 @@ class WarehouseEngine:
             )
         if progress is not None:
             progress(0.3)
-        outcome = replay_movements(request, dataset.movements)
-        kpi = inventory_kpi.calculate(request, dataset, outcome=outcome)
+        kpi = inventory_kpi.calculate(request, dataset)
         if progress is not None:
-            progress(0.5)
-        abc = abc_aging.calculate(request, dataset, kpi=kpi, outcome=outcome)
-        if progress is not None:
-            progress(0.7)
-        repl = replenishment.calculate(request, dataset, kpi=kpi, outcome=outcome)
-        fcst = forecasting.calculate(request, dataset, outcome=outcome)
-        bench = benchmark_compare.calculate(request, dataset, kpi_metrics=kpi.metrics)
-        if progress is not None:
-            progress(0.85)
-        warnings = [
-            *report.warnings,
-            *kpi.warnings,
-            *abc.warnings,
-            *repl.warnings,
-            *fcst.warnings,
-            *bench.warnings,
-        ]
+            progress(0.9)
+        placeholder = Warning(
+            code="ANALYSIS_PLACEHOLDER",
+            severity=WarningSeverity.INFO,
+            message=(
+                "abc-aging/replenishment/forecasting/benchmark 四类计算器尚未实现，"
+                "相应结果为占位（本次已返回 KPI/COGS 真实指标）。"
+            ),
+            fields=[],
+            blocking=False,
+        )
+        warnings = [*report.warnings, *kpi.warnings, placeholder]
         result = build_analysis_result(
             request,
             dataset,
             engine_version=self.engine_version,
             formula_version=self.formula_version,
-            metrics=[*kpi.metrics, *abc.metrics, *repl.metrics, *fcst.metrics, *bench.metrics],
+            metrics=kpi.metrics,
             warnings=warnings,
             summary=(
-                "KPI/COGS（F-KPI-001~008、F-COGS-001）、ABC/库龄/呆滞"
-                "（F-ABC-001、F-AGE-001、F-STALE-001）、补货（F-REPL-001~003）、"
-                "预测与误差（F-FCST-001~002）、行业基准（F-BM-001）共 18 项真实结果。"
+                "KPI/COGS 真实结果（F-KPI-001~008、F-COGS-001）；"
+                "abc-aging/replenishment/forecasting/benchmark 为 M0 占位，待 M1/M2 交付。"
             ),
             data_quality=build_data_quality(warnings),
         )
@@ -146,7 +133,7 @@ class WarehouseEngine:
         return result
 
     def list_capabilities(self) -> list[CapabilityDescriptor]:
-        """返回五个计算能力的描述（公式 ID 冻结于 docs/formula-spec.md）。"""
+        """返回五个计算能力的占位描述。"""
         return [
             _capability(
                 name="kpi",

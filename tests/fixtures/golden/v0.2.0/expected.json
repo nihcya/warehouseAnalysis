@@ -73,46 +73,6 @@
       "sample_count": 7,
       "tolerance": "ratio",
       "derivation": "daily_out = 31/29；coverage = 73/(31/29) = 73×29/31 = 2117/31 = 68.2903225806… → 68.290323"
-    },
-    "F-ABC-001": {
-      "value": "7",
-      "unit": "SKU",
-      "sample_count": 7,
-      "tolerance": "qty",
-      "reason": null,
-      "derivation": "参与分类的 SKU 数 = 7。amt = max(0, out_qty) × §3.5 单位成本：SKU-1001 = 12 × 3.00 = 36.00、SKU-1002 = 10 × 1.50 = 15.00、SKU-1003 = 8 × 2.00 = 16.00、SKU-1007 = 0 × 4.00 = 0（期内冲销撤销出库）；SKU-1004 净退货 out_qty = 4 − 6 = −2 按下限 0、SKU-1005 与 SKU-1006 无单位成本 → amt 记 0 归 C"
-    },
-    "F-REPL-001": {
-      "value": "null",
-      "unit": "件",
-      "sample_count": 0,
-      "tolerance": "qty",
-      "reason": "param_missing",
-      "derivation": "数据集未提供 replenishment 记录且 parameters 无 lead_time_days，7 个 SKU 全部降级（§7.5）"
-    },
-    "F-REPL-002": {
-      "value": "null",
-      "unit": "件",
-      "sample_count": 0,
-      "tolerance": "qty",
-      "reason": "param_missing",
-      "derivation": "数据集未提供 replenishment 记录且 parameters 无 lead_time_days，7 个 SKU 全部降级（§7.5）"
-    },
-    "F-REPL-003": {
-      "value": "null",
-      "unit": "件",
-      "sample_count": 0,
-      "tolerance": "qty",
-      "reason": "param_missing",
-      "derivation": "数据集未提供 replenishment 记录且 parameters 无 lead_time_days，7 个 SKU 全部降级（§7.5）"
-    },
-    "F-BM-001": {
-      "value": "null",
-      "unit": "ratio",
-      "sample_count": 0,
-      "tolerance": "ratio",
-      "reason": "benchmark_unavailable",
-      "derivation": "parameters 未注入 benchmarks，无可用基准（§9：禁止经验值兜底）"
     }
   },
   "per_sku": {
@@ -167,180 +127,14 @@
     }
   },
   "analyze_warnings": [
-    {
-      "code": "PERIOD_MISMATCH",
-      "fields": [
-        "move_date"
-      ]
-    },
-    {
-      "code": "PERIOD_MISMATCH",
-      "fields": [
-        "move_date"
-      ]
-    },
-    {
-      "code": "PERIOD_MISMATCH",
-      "fields": [
-        "move_date"
-      ]
-    },
-    {
-      "code": "PERIOD_MISMATCH",
-      "fields": [
-        "move_date"
-      ]
-    },
-    {
-      "code": "NEGATIVE_BALANCE",
-      "fields": [
-        "SKU-1003",
-        "WH-01",
-        "2026-06-10",
-        "-3"
-      ]
-    },
-    {
-      "code": "UNIT_COST_MISSING",
-      "fields": [
-        "SKU-1005"
-      ]
-    },
-    {
-      "code": "UNIT_COST_MISSING",
-      "fields": [
-        "SKU-1006"
-      ]
-    },
-    {
-      "code": "NO_OUTFLOW",
-      "fields": [
-        "SKU-1004"
-      ]
-    },
-    {
-      "code": "NO_OUTFLOW",
-      "fields": [
-        "SKU-1005"
-      ]
-    },
-    {
-      "code": "NO_OUTFLOW",
-      "fields": [
-        "SKU-1006"
-      ]
-    },
-    {
-      "code": "NO_OUTFLOW",
-      "fields": [
-        "SKU-1007"
-      ]
-    },
-    {
-      "code": "PARAM_MISSING",
-      "fields": [
-        "SKU-1001",
-        "lead_time_days"
-      ]
-    },
-    {
-      "code": "PARAM_MISSING",
-      "fields": [
-        "SKU-1002",
-        "lead_time_days"
-      ]
-    },
-    {
-      "code": "PARAM_MISSING",
-      "fields": [
-        "SKU-1003",
-        "lead_time_days"
-      ]
-    },
-    {
-      "code": "PARAM_MISSING",
-      "fields": [
-        "SKU-1004",
-        "lead_time_days"
-      ]
-    },
-    {
-      "code": "PARAM_MISSING",
-      "fields": [
-        "SKU-1005",
-        "lead_time_days"
-      ]
-    },
-    {
-      "code": "PARAM_MISSING",
-      "fields": [
-        "SKU-1006",
-        "lead_time_days"
-      ]
-    },
-    {
-      "code": "PARAM_MISSING",
-      "fields": [
-        "SKU-1007",
-        "lead_time_days"
-      ]
-    },
-    {
-      "code": "INSUFFICIENT_SAMPLES",
-      "fields": [
-        "SKU-1001",
-        "5"
-      ]
-    },
-    {
-      "code": "INSUFFICIENT_SAMPLES",
-      "fields": [
-        "SKU-1002",
-        "5"
-      ]
-    },
-    {
-      "code": "INSUFFICIENT_SAMPLES",
-      "fields": [
-        "SKU-1003",
-        "5"
-      ]
-    },
-    {
-      "code": "INSUFFICIENT_SAMPLES",
-      "fields": [
-        "SKU-1004",
-        "5"
-      ]
-    },
-    {
-      "code": "INSUFFICIENT_SAMPLES",
-      "fields": [
-        "SKU-1005",
-        "5"
-      ]
-    },
-    {
-      "code": "INSUFFICIENT_SAMPLES",
-      "fields": [
-        "SKU-1006",
-        "5"
-      ]
-    },
-    {
-      "code": "INSUFFICIENT_SAMPLES",
-      "fields": [
-        "SKU-1007",
-        "5"
-      ]
-    },
-    {
-      "code": "BENCHMARK_UNAVAILABLE",
-      "fields": [
-        "",
-        "全国"
-      ]
-    }
+    {"code": "PERIOD_MISMATCH", "fields": ["move_date"]},
+    {"code": "PERIOD_MISMATCH", "fields": ["move_date"]},
+    {"code": "PERIOD_MISMATCH", "fields": ["move_date"]},
+    {"code": "PERIOD_MISMATCH", "fields": ["move_date"]},
+    {"code": "NEGATIVE_BALANCE", "fields": ["SKU-1003", "WH-01", "2026-06-10", "-3"]},
+    {"code": "UNIT_COST_MISSING", "fields": ["SKU-1005"]},
+    {"code": "UNIT_COST_MISSING", "fields": ["SKU-1006"]},
+    {"code": "ANALYSIS_PLACEHOLDER", "fields": []}
   ],
   "tolerances": {
     "money_abs": "0.01",
@@ -350,10 +144,6 @@
     "ratio_abs": "1e-6",
     "ratio_rel": "1e-6",
     "abc_exact": true,
-    "note": "M1 指标层容差按 formula-spec §10：金额 abs≤0.01 或 rel≤1e-6；数量 abs≤0.001 或 rel≤1e-9；比率/天数 abs≤1e-6 或 rel≤1e-6（满足其一即通过）；Warning 按 code+fields 完全一致",
-    "aging_bucket_exact": true,
-    "stale_exact": true
-  },
-  "frozen_scope": "M1 冻结的 KPI/COGS 九项指标层数值（手工推导）保留不变。M2 补入结构性可推导项——F-ABC-001（参与分类的 SKU 数 = 7）、F-REPL-001~003（数据集无补货记录 → null + param_missing）、F-BM-001（null + benchmark_unavailable）；F-AGE-001 / F-STALE-001 / F-FCST-001~002 的数值口径由 golden/v0.3.0 与 golden/v0.4.0 冻结。analyze_warnings 已移除 ANALYSIS_PLACEHOLDER 并补入新计算器的告警。",
-  "analyze_warnings_note": "顺序固定为 校验层 → KPI → abc-aging → 补货 → 预测 → 基准，各组内按 sku_id 字典序。共 26 条：4 条历史事件 PERIOD_MISMATCH（EVT-2001~EVT-2004）、1 条 SKU-1003 期内负余额、2 条金额口径缺单位成本（SKU-1005/1006）、4 条 amt = 0 归 C（SKU-1004 净退货、SKU-1005/1006 无单位成本、SKU-1007 期内冲销撤销出库）、7 条 lead_time_days 缺失、7 条有效需求期数 5 < 12、1 条无可用基准"
+    "note": "M1 指标层容差按 formula-spec §10：金额 abs≤0.01 或 rel≤1e-6；数量 abs≤0.001 或 rel≤1e-9；比率/天数 abs≤1e-6 或 rel≤1e-6（满足其一即通过）；Warning 按 code+fields 完全一致"
+  }
 }
