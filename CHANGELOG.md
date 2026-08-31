@@ -3,6 +3,33 @@
 本文件遵循 Keep a Changelog 风格，版本号遵循语义化版本（SemVer），日期格式为 YYYY-MM-DD。
 本文件是开发者 B 侧的变更记录：M0 的 contracts、engine、Skill、公式文档等组件由 B 并行交付，在此统一记录；开发者 A 侧组件（Desktop、Control API、Local DB 等）的变更由 A 侧记录。
 
+<<<<<<< Updated upstream
+=======
+## [A 侧 0.2.0] - 2026-08-30 - 未发布（M2：控制平面认证授权与商户端状态）
+
+> A 侧控制平面（services/control-plane）变更。分支 `feature/a-m2-control-plane-auth`；版本 0.1.0 → 0.2.0；云端迁移 `control-0001` → `control-0004`。
+
+### Added
+
+- 认证闭环：`POST /auth/login`、`POST /auth/refresh`、`POST /auth/logout`、`GET /account/me`；密码 **Argon2id** 哈希、Access Token 为 **JWT（15min）**、Refresh Token 一次性轮换且**仅存 SHA-256 指纹**。
+- 刷新令牌重放检测：轮换时旧指纹移入 `previous_refresh_token_hash`，已失效令牌再次使用即判定重放并吊销该账号全部会话（401 `AUTH_REQUIRED`）。
+- 设备注册：`POST /devices/register`（同 `(tenant_id, fingerprint)` 幂等、达 `max_devices` 拒绝、已吊销指纹拒绝）、`GET /devices`（租户隔离）。
+- 许可证与离线宽限期：状态机 `ACTIVE`/`GRACE`/`EXPIRED`/`REVOKED`；宽限期默认 **7 天**（`LICENSE_OFFLINE_GRACE_DAYS` 可配），超期返回 403 `LICENSE_EXPIRED`。
+- Scope 与租户隔离：`require_tenant_access` / `require_developer_scope` / `require_tenant_with_license` 校验真实 JWT；**dev token（`Bearer merchant`/`developer`）下线**。
+- 审计：`audit_log` 只追加，登录成功/失败、刷新、注销、设备注册、许可证变更全部留痕，`detail_json` 白名单过滤、不含敏感原文。
+- 实时状态：`GET /events/stream`（SSE，单调事件 ID + `Last-Event-ID` 续传 + 15s keepalive）与 `GET /events/snapshot?since=`（30s 轮询降级）；`EventHub` 环形缓冲。
+- 仓储双实现：定义 `application/ports.py` 协议，**内存实现**（测试注入 / 本地演示，生产拒绝）+ **PostgreSQL 实现**（生产路径），组合根 `container.py` 按 `CONTROL_PLANE_REPOSITORY` 选择。
+- 云端迁移：`control_0002`（tenant/account/session/device）、`control_0003`（product_profile/license/feature_grant）、`control_0004`（audit_log，自 §35.7 的 0006 提前）。
+- Web 商户端：`apps/web` 登录页接真实 API、商户工作台展示许可证/设备/版本状态、状态流 hook（SSE + 轮询降级）；`package.json` 加 `@ant-design/icons`。
+- 文档：`docs/data-dictionary.md` §2.3~2.10、`docs/er-diagram.md` §2.2~2.3、`docs/m2-handover-a.md`、`DECISIONS.md` D-013~D-020。
+
+### Changed
+
+- 统一成功响应包 `{"data": ...}`；错误包沿用 `contracts.enums.ErrorCode`（零新增枚举）。
+- `/heartbeat`、`/tasks*`、`/sync/*`、`/config`、`/telemetry`、`/merchants` 维持 stub 501，但鉴权依赖从 dev token 改为真实 JWT。
+- `control_meta` 种子 `db_schema_version` 升 `control-0004`、`control_plane_version` 升 `0.2.0`；枚举种子扩至 67 行。
+
+>>>>>>> Stashed changes
 ## [0.2.0] - 2026-08-29 - 未发布（M1：KPI/COGS 引擎实现）
 
 ### Added

@@ -342,18 +342,123 @@ erDiagram
 
 | key | value |
 |---|---|
-| `db_schema_version` | `control-0001` |
+| `db_schema_version` | `control-0004`（M2 起随迁移链推进：0001 → 0002 → 0003 → 0004） |
 | `control_plane_version` | `0.1.0` |
 
-`control_enum`（36 行，`code = <kind>:<value>`）：
+`control_enum`（M2 扩展至 67 行，`code = <kind>:<value>`）：
 
-| kind | 取值 |
-|---|---|
-| `task_status` | CREATED、QUEUED、RUNNING、SUCCEEDED、FAILED、CANCELLED、MISSED、RETRYING |
-| `run_status` | 同 task_status（与任务状态机同构） |
-| `device_status` | REGISTERED、ONLINE、DEGRADED、OFFLINE、REVOKED |
-| `sync_status` | CREATED、ENQUEUED、DELIVERED、APPLIED、ACKED、EXPIRED、REJECTED、RETRYING |
-| `move_type` | INBOUND、OUTBOUND、RETURN、SCRAP、TRANSFER、STOCKTAKE、REVERSAL（取自 `contracts.MoveType`） |
+| kind | 取值 | 引入迁移 |
+|---|---|---|
+| `task_status` | CREATED、QUEUED、RUNNING、SUCCEEDED、FAILED、CANCELLED、MISSED、RETRYING | 0001 |
+| `run_status` | 同 task_status（与任务状态机同构） | 0001 |
+| `device_status` | REGISTERED、ONLINE、DEGRADED、OFFLINE、REVOKED | 0001 |
+| `sync_status` | CREATED、ENQUEUED、DELIVERED、APPLIED、ACKED、EXPIRED、REJECTED、RETRYING | 0001 |
+| `move_type` | INBOUND、OUTBOUND、RETURN、SCRAP、TRANSFER、STOCKTAKE、REVERSAL（取自 `contracts.MoveType`） | 0001 |
+| `tenant_status` | ACTIVE、SUSPENDED | 0002 |
+| `account_status` | ACTIVE、LOCKED、DISABLED | 0002 |
+| `account_role` | MERCHANT_OWNER、DEVELOPER | 0002 |
+| `client_type` | DESKTOP、WEB、MINI_PROGRAM | 0002 |
+| `product_profile_status` | ACTIVE、RETIRED | 0003 |
+| `license_status` | ACTIVE、EXPIRED、REVOKED | 0003 |
+| `audit_action` | AUTH_LOGIN、AUTH_REFRESH、AUTH_LOGOUT、DEVICE_REGISTER、LICENSE_STATUS_CHANGE | 0004 |
+| `audit_result` | SUCCESS、DENIED、ERROR | 0004 |
+
+### 2.2 M2 身份与授权表组（0002_tenant_account_device、0003_license_product_feature、0004_audit）
+
+依据主基线 §35.6「租户、账号和设备组」「许可证和能力组」；`audit_log` 自 §35.7 规划的 0006 提前至 0004（M2 第 4 项要求管理操作审计，见 data-dictionary.md §4）。
+
+```mermaid
+erDiagram
+    tenant["tenant（0002）"] {
+        TEXT tenant_id PK "tnt_<hex>"
+        TEXT name "NOT NULL"
+        TEXT product_profile_id FK "NULLABLE，0003 补外键（SET NULL）"
+        TEXT status "ACTIVE | SUSPENDED（CHECK）"
+    }
+    account["account（0002）"] {
+        TEXT account_id PK "acc_<hex>"
+        TEXT tenant_id FK "开发者账号为 NULL（CASCADE）"
+        TEXT login_name UK "全局唯一"
+        TEXT password_hash "Argon2id，机密（哈希）"
+        TEXT role "MERCHANT_OWNER | DEVELOPER（CHECK）"
+        TEXT status "ACTIVE | LOCKED | DISABLED（CHECK）"
+        INTEGER failed_attempts ">= 0，成功登录清零"
+        TIMESTAMPTZ locked_until "锁定到期，自动恢复"
+        TIMESTAMPTZ last_login_at "最近成功登录"
+    }
+    session["session（0002）"] {
+        TEXT session_id PK "ses_<hex>（JWT sid）"
+        TEXT account_id FK "CASCADE"
+        TEXT client_type "DESKTOP | WEB | MINI_PROGRAM（CHECK）"
+        TEXT device_id "登录时声明，NULLABLE"
+        TEXT refresh_token_hash UK "SHA-256 指纹，机密"
+        TEXT previous_refresh_token_hash "轮换前指纹（重放检测）"
+        TIMESTAMPTZ expires_at "Refresh 过期（30 天）"
+        TIMESTAMPTZ revoked_at "终态"
+    }
+    device["device（0002）"] {
+        TEXT device_id PK "dev_<hex>"
+        TEXT tenant_id FK "CASCADE"
+        TEXT device_type "DESKTOP | WEB | MINI_PROGRAM（CHECK）"
+        TEXT fingerprint "与 tenant_id 联合 UNIQUE"
+        TEXT status "REGISTERED→ONLINE→DEGRADED→OFFLINE，REVOKED 终态（CHECK）"
+        TEXT app_version "客户端版本"
+        TIMESTAMPTZ last_seen_at "M3 心跳写入"
+    }
+    product_profile["product_profile（0003）"] {
+        TEXT product_profile_id PK "ppf_<hex>"
+        TEXT code UK "行业编码（retail 等）"
+        TEXT status "ACTIVE | RETIRED（CHECK）"
+    }
+    license["license（0003）"] {
+        TEXT license_id PK "lic_<hex>"
+        TEXT tenant_id FK "CASCADE"
+        TEXT product_profile_id FK "RESTRICT"
+        DATE starts_at "CHECK starts_at <= expires_at"
+        DATE expires_at "到期判定按 UTC 自然日"
+        INTEGER max_devices "CHECK > 0"
+        TEXT status "ACTIVE | EXPIRED | REVOKED（CHECK）"
+    }
+    feature_grant["feature_grant（0003）"] {
+        TEXT feature_grant_id PK "fgr_<hex>"
+        TEXT tenant_id FK "CASCADE"
+        TEXT feature_code "与 tenant_id 联合 UNIQUE"
+        BOOLEAN enabled "查询只返回 enabled"
+    }
+    audit_log["audit_log（0004）"] {
+        TEXT audit_id PK "aud_<hex>"
+        TEXT actor_account_id "NULLABLE（登录失败留痕）"
+        TEXT tenant_id "NULLABLE，无外键（审计须独立于账号生存期）"
+        TEXT action "AUTH_LOGIN | AUTH_REFRESH | AUTH_LOGOUT | DEVICE_REGISTER | LICENSE_STATUS_CHANGE（CHECK）"
+        TEXT result "SUCCESS | DENIED | ERROR（CHECK）"
+        TEXT request_id "与 X-Request-ID 一致"
+        JSON detail_json "应用层白名单过滤"
+        TIMESTAMPTZ occurred_at "索引 (tenant_id, occurred_at)"
+    }
+
+    tenant ||--o{ account : "拥有（开发者账号除外）"
+    tenant ||--o{ session : "经 account 关联"
+    account ||--o{ session : "建立"
+    tenant ||--o{ device : "注册"
+    tenant ||--o{ license : "持有"
+    product_profile ||--o{ license : "决定能力"
+    tenant ||--o{ feature_grant : "授权"
+    product_profile |o--o| tenant : "行业类型（product_profile_id）"
+```
+
+关键约束与索引：
+
+- `account.login_name` 全局 UNIQUE；CHECK `role = 'DEVELOPER' OR tenant_id IS NOT NULL`（无租户的商户账号禁止出现）；`ix_account_tenant_id`。
+- `session.refresh_token_hash` 全局 UNIQUE；`ix_session_account_id`、`ix_session_expires_at`；一次登录一行，轮换覆盖指纹。
+- `device (tenant_id, fingerprint)` UNIQUE（`uq_device_tenant_id_fingerprint`）；`ix_device_tenant_id_status`。
+- `license` 部分唯一索引 `uq_license_tenant_active (tenant_id) WHERE status = 'ACTIVE'`——同一商户只能有一个 ACTIVE 许可证。
+- `audit_log` 只追加：仓储不提供更新/删除入口；`ix_audit_log_tenant_occurred`、`ix_audit_log_actor_occurred`。
+
+### 2.3 M2 语义注记
+
+- **Refresh Token 轮换与重放检测**：刷新时 `refresh_token_hash` 覆盖为新指纹、旧指纹移入 `previous_refresh_token_hash`；用 previous 指纹再次刷新即判定重放，撤销该账号全部会话（`revoked_at` 批量回填）。
+- **离线宽限期**（主基线 §10.3）：宽限天数（默认 7 天，`LICENSE_OFFLINE_GRACE_DAYS`）不落表，由 `app.domain.license` 按"到期日 + 宽限天数"推导——`ACTIVE` / `GRACE` 放行，`EXPIRED` / `REVOKED` / `MISSING` 返回 403 `LICENSE_EXPIRED`。
+- **设备状态机**：M2 只落地 `REGISTERED`（注册）与 `REVOKED`（吊销）两个写路径；`ONLINE` / `DEGRADED` / `OFFLINE` 由 M3 心跳驱动，字段 `last_seen_at` 预留。
 
 ---
 
@@ -365,5 +470,6 @@ erDiagram
 - 关键约束（`analysis_run.run_id` UNIQUE、`analysis_result` FK 与复合索引、`control_enum.code` UNIQUE、两库主键）；
 - `alembic_version` 值（本地 `0002_analysis_m0` / 云端 `control_0001`）与种子数据（`db_schema_version` 等）；
 - **M1 扩展（追加）**：本地 17 张新表存在性（0003 主数据 7 表、0004 事件 6 表、0005 导入 2 表、0006 报告备份 2 表）、关键约束（`sku.sku_id` UNIQUE、`inventory_event.event_id` UNIQUE 与 `quantity > 0` CHECK、快照五元组 UNIQUE、`report_artifact (run_id, format)` UNIQUE、`backup_record` 枚举 CHECK）及约束实际生效（重复/非法插入被拒）；本地 `alembic_version = 0006_report_backup`、`db_schema_version = local-0006`（M0 时点值随迁移链推进，云端部分不变）。
+- **M2 扩展（待追加）**：云端 8 张新表存在性（0002 租户/账号/会话/设备 4 表、0003 行业/许可证/功能授权 3 表、0004 审计 1 表）、关键约束（`account.login_name` UNIQUE、`device (tenant_id, fingerprint)` UNIQUE、`license` ACTIVE 部分唯一索引、`session.refresh_token_hash` UNIQUE）与 `control-0004` 版本值——云端部分由 CI 的 PostgreSQL service 容器执行 `services/control-plane/tests/test_migrations.py` 验证，本地无 PG 时 skip。
 
 云端无本地 PostgreSQL 时自动打印 skip（连接探测失败不视为失败）；测试侧同口径验证见 `local-data/tests/test_migrations.py` 与 `services/control-plane/tests/test_migrations.py`。

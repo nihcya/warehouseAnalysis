@@ -17,6 +17,16 @@
 | D-010 | 商户类型与安装包 | 行业差异经 product_profile + 配置 + 许可证实现，一套代码；不做按商户定制 | 2026-08-29 | 基线 §2.3 | 无撤销计划 |
 | D-011 | 商户业务数据云端边界 | 云端控制库不建 sku/movement/unit_cost 表；API 字段白名单、日志脱敏 | 2026-08-29 | 基线 §3.2/§35.2 | 不撤销（隐私红线） |
 | D-012 | validate_dataset 签名 | 以主基线 §21.2 为准：validate_dataset(request, dataset) 双参数（确认 B 交接议题） | 2026-08-29 | m0-handover-b.md §6 | 无撤销计划 |
+| D-013 | 密码哈希算法 | **Argon2id**（`argon2-cffi`），明文不落库 | 2026-08-30 | M2 控制平面认证（SECURITY.md 密钥与凭证基线） | 算法被证明不可逆或标准升级时重评 |
+| D-014 | 令牌模型 | 无状态 **JWT Access（15min）** + 可轮换 **Refresh**（仅存 SHA-256 指纹）；每次请求回查 `session` 表使令牌可即时撤销 | 2026-08-30 | M2 认证闭环、可吊销需求 | 无撤销计划 |
+| D-015 | Refresh 轮换与重放检测 | 一次性轮换（旧指纹移入 `previous_refresh_token_hash`）；`previous` 指纹再次出现即判定重放，吊销该账号**全部会话** | 2026-08-30 | 令牌泄露最小化损失原则 | 引入设备级令牌族后重评粒度 |
+| D-016 | 许可证离线宽限期 | 默认 **7 天**（`LICENSE_OFFLINE_GRACE_DAYS` 可配，0 = 到期即限），**不落表**，按"到期日 + 宽限天数"推导；`ACTIVE`/`GRACE` 放行，`EXPIRED`/`REVOKED`/`MISSING` → 403 | 2026-08-30 | 主基线 §10.3 | 隐私/合规要求收紧时缩短 |
+| D-017 | 仓储双实现 | 定义仓储协议；**内存实现**（测试注入 / 本地演示）+ **PostgreSQL 实现**（生产），组合根按 `CONTROL_PLANE_REPOSITORY` 选择；**生产环境拒绝 memory** | 2026-08-30 | 本地无 PG 可验证性、CI PG service 验证 | 无撤销计划 |
+| D-018 | SSE 状态通道 | `EventHub`：单调事件 ID + 环形缓冲 + `Last-Event-ID` 续传 + 15s keepalive；客户端 30s 轮询降级（延续 D-006） | 2026-08-30 | M2 实时状态、弱网兜底 | 设备规模证明 SSE 不足时重评 |
+| D-019 | 审计日志 | `audit_log` **只追加**（仓储不提供改/删入口）；`detail_json` 经白名单 `ALLOWED_DETAIL_KEYS` 过滤，不存密码/令牌/业务明细原文 | 2026-08-30 | 安全审计保留 180 天（§35.10） | 无撤销计划 |
+| D-020 | dev token 下线 | M2 起 `Bearer merchant` / `Bearer developer` 字符串**不再被接受**，必须真实 JWT；缺失/无效 → 401，scope 不足 → 403 | 2026-08-30 | 关闭 M0 临时鉴权后门 | 无撤销计划 |
+
+> M2 的 D-013~D-020 在 `feature/a-m2-control-plane-auth` 实现期间冻结，按基线 §18 要求变更须新建 ADR 并经 A、B 联合评审。
 
 ## 待 G1 前补充的决策（后续 ADR）
 

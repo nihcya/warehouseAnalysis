@@ -420,6 +420,128 @@ UNIQUE 约束 `uq_report_artifact_run_id_format`：`(run_id, format)`。
 | code | TEXT | `<kind>:<value>` | 否（UNIQUE） | 系统（迁移种子） | 内部 | 全局唯一；不同 kind 枚举值可能重名（如两个 CREATED） |
 | kind | TEXT | 枚举类别 | 否 | 系统 | 内部 | 五类，取值集合见 er-diagram.md §2.1 |
 
+### 2.3 tenant（迁移 0002_tenant_account_device，revision `control_0002`）
+
+商户主档（M2）。行业差异经 `product_profile` 引用实现，不为每个商户复制代码（DECISIONS.md D-010）。
+
+| 字段 | 类型 | 单位/格式 | 可空 | 来源 | 敏感级别 | 说明 |
+|---|---|---|---|---|---|---|
+| tenant_id | TEXT | `tnt_<hex>` | 否（PK） | 系统 | 内部 | 商户标识 |
+| name | TEXT | 商户名称 | 否 | 开发者端 | 明文 | 展示用 |
+| product_profile_id | TEXT | `ppf_<hex>` | 是 | 开发者端 | 内部 | 引用 `product_profile`（0003 补外键，`ON DELETE SET NULL`） |
+| status | TEXT | `ACTIVE` / `SUSPENDED` | 否 | 开发者端 | 内部 | CHECK 约束；挂起商户登录被拒（`TENANT_SUSPENDED`） |
+| created_at / updated_at | TIMESTAMPTZ | UTC | 否 | 系统 | 内部 | `server_default now()` |
+
+### 2.4 account（迁移 0002_tenant_account_device，revision `control_0002`）
+
+账号表：商户主账号与开发者账号同表、按角色区分（主基线 §35.6）。
+
+| 字段 | 类型 | 单位/格式 | 可空 | 来源 | 敏感级别 | 说明 |
+|---|---|---|---|---|---|---|
+| account_id | TEXT | `acc_<hex>` | 否（PK） | 系统 | 内部 | 账号标识 |
+| tenant_id | TEXT | `tnt_<hex>` | 是（开发者账号为空） | 开发者端 | 内部 | 外键 `tenant`（`ON DELETE CASCADE`）；CHECK：`role='DEVELOPER' OR tenant_id IS NOT NULL` |
+| login_name | TEXT | 登录名 | 否（UNIQUE） | 开发者端 | 内部 | 全局唯一，防止跨商户撞名 |
+| password_hash | TEXT | Argon2id 哈希 | 否 | 注册流程 | **机密（哈希）** | 只存哈希，不存明文（SECURITY.md） |
+| role | TEXT | `MERCHANT_OWNER` / `DEVELOPER` | 否 | 系统 | 内部 | 决定 Scope（merchant / developer） |
+| status | TEXT | `ACTIVE` / `LOCKED` / `DISABLED` | 否 | 系统 | 内部 | CHECK 约束；连续失败 5 次锁定 15 分钟 |
+| failed_attempts | INTEGER | 计数 | 否 | 系统 | 内部 | `>= 0`；登录成功清零 |
+| locked_until | TIMESTAMPTZ | UTC | 是 | 系统 | 内部 | 锁定到期时间（到期自动恢复可用） |
+| last_login_at | TIMESTAMPTZ | UTC | 是 | 系统 | 内部 | 最近一次成功登录 |
+
+### 2.5 session（迁移 0002_tenant_account_device，revision `control_0002`）
+
+登录会话：**一次登录一行**，轮换时覆盖指纹并把旧指纹移入 previous（重放检测）。
+
+| 字段 | 类型 | 单位/格式 | 可空 | 来源 | 敏感级别 | 说明 |
+|---|---|---|---|---|---|---|
+| session_id | TEXT | `ses_<hex>` | 否（PK） | 系统 | 内部 | 会话标识（JWT `sid` 声明） |
+| account_id | TEXT | `acc_<hex>` | 否 | 系统 | 内部 | 外键 `account`（`ON DELETE CASCADE`） |
+| client_type | TEXT | `DESKTOP` / `WEB` / `MINI_PROGRAM` | 否 | 系统 | 内部 | CHECK 约束；未知取值由应用层回退 WEB |
+| device_id | TEXT | `dev_<hex>` | 是 | 系统 | 内部 | 登录时声明的设备 |
+| refresh_token_hash | TEXT | SHA-256 十六进制 | 否（UNIQUE） | 系统 | **机密（指纹）** | 当前有效 Refresh Token 指纹；**明文不落库** |
+| previous_refresh_token_hash | TEXT | SHA-256 十六进制 | 是 | 系统 | **机密（指纹）** | 刚被轮换掉的指纹；再次出现即判定重放并撤销全部会话 |
+| expires_at | TIMESTAMPTZ | UTC | 否 | 系统 | 内部 | Refresh Token 过期时间（默认 30 天，轮换时顺延） |
+| rotated_at / revoked_at / created_at | TIMESTAMPTZ | UTC | 是（revoked_at/rotated_at） | 系统 | 内部 | 轮换时间 / 撤销时间（终态）/ 创建时间 |
+
+### 2.6 device（迁移 0002_tenant_account_device，revision `control_0002`）
+
+设备表：`(tenant_id, fingerprint)` 唯一；已吊销设备不可复用（§32.3）。
+
+| 字段 | 类型 | 单位/格式 | 可空 | 来源 | 敏感级别 | 说明 |
+|---|---|---|---|---|---|---|
+| device_id | TEXT | `dev_<hex>` | 否（PK） | 系统 | 内部 | 设备标识 |
+| tenant_id | TEXT | `tnt_<hex>` | 否 | 系统 | 内部 | 外键 `tenant`（`ON DELETE CASCADE`） |
+| device_type | TEXT | `DESKTOP` / `WEB` / `MINI_PROGRAM` | 否 | 注册请求 | 内部 | CHECK 约束；未知取值回退 DESKTOP |
+| name | TEXT | 设备名称 | 否 | 注册请求 | 明文 | 幂等重复注册时刷新 |
+| fingerprint | TEXT | 客户端机器指纹 | 否 | 注册请求 | 内部 | 与 tenant_id 组成唯一约束 |
+| status | TEXT | `REGISTERED` / `ONLINE` / `DEGRADED` / `OFFLINE` / `REVOKED` | 否 | 系统 | 内部 | 状态机见 er-diagram.md §2.3；M2 只落地注册与吊销，在线判定随 M3 心跳 |
+| app_version | TEXT | 语义化版本 | 是 | 注册请求 | 明文 | 客户端版本（Web 版本状态页展示） |
+| last_seen_at | TIMESTAMPTZ | UTC | 是 | 系统（M3 心跳） | 内部 | 最近心跳 |
+| registered_at / updated_at | TIMESTAMPTZ | UTC | 否 | 系统 | 内部 | `server_default now()` |
+
+### 2.7 product_profile（迁移 0003_license_product_feature，revision `control_0003`）
+
+行业类型（零售 / 批发 / 制造等），决定默认配置与能力集。
+
+| 字段 | 类型 | 单位/格式 | 可空 | 来源 | 敏感级别 | 说明 |
+|---|---|---|---|---|---|---|
+| product_profile_id | TEXT | `ppf_<hex>` | 否（PK） | 系统 | 内部 | 行业类型标识 |
+| code | TEXT | 行业编码（如 `retail`） | 否（UNIQUE） | 系统 | 内部 | API 只回传 code |
+| name | TEXT | 行业名称 | 否 | 系统 | 明文 | 展示用 |
+| default_config_version | TEXT | 配置版本号 | 是 | 系统 | 内部 | 新商户默认配置 |
+| status | TEXT | `ACTIVE` / `RETIRED` | 否 | 系统 | 内部 | RETIRED 不对新商户开放 |
+| created_at | TIMESTAMPTZ | UTC | 否 | 系统 | 内部 | `server_default now()` |
+
+### 2.8 license（迁移 0003_license_product_feature，revision `control_0003`）
+
+商户许可证；**同一商户只能有一个 ACTIVE**（部分唯一索引 `uq_license_tenant_active`）。
+
+| 字段 | 类型 | 单位/格式 | 可空 | 来源 | 敏感级别 | 说明 |
+|---|---|---|---|---|---|---|
+| license_id | TEXT | `lic_<hex>` | 否（PK） | 系统 | 内部 | 许可证标识 |
+| tenant_id | TEXT | `tnt_<hex>` | 否 | 系统 | 内部 | 外键 `tenant`（`ON DELETE CASCADE`） |
+| product_profile_id | TEXT | `ppf_<hex>` | 否 | 系统 | 内部 | 外键 `product_profile`（`ON DELETE RESTRICT`） |
+| starts_at / expires_at | DATE | UTC 日期 | 否 | 开发者端 | 内部 | CHECK `starts_at <= expires_at`；到期判定按 UTC 自然日 |
+| max_devices | INTEGER | 台 | 否 | 开发者端 | 内部 | `> 0`；设备注册上限 |
+| status | TEXT | `ACTIVE` / `EXPIRED` / `REVOKED` | 否 | 系统 | 内部 | CHECK 约束；离线宽限期评估见 §2.9 说明 |
+| created_at / updated_at | TIMESTAMPTZ | UTC | 否 | 系统 | 内部 | `server_default now()` |
+
+### 2.9 feature_grant（迁移 0003_license_product_feature，revision `control_0003`）
+
+商户功能开关授权，`(tenant_id, feature_code)` 唯一。
+
+| 字段 | 类型 | 单位/格式 | 可空 | 来源 | 敏感级别 | 说明 |
+|---|---|---|---|---|---|---|
+| feature_grant_id | TEXT | `fgr_<hex>` | 否（PK） | 系统 | 内部 | 授权标识 |
+| tenant_id | TEXT | `tnt_<hex>` | 否 | 系统 | 内部 | 外键 `tenant`（`ON DELETE CASCADE`） |
+| feature_code | TEXT | 能力编码（如 `inventory-kpi`） | 否 | 开发者端 | 内部 | 与 tenant_id 联合唯一 |
+| enabled | BOOLEAN | 开关 | 否 | 开发者端 | 内部 | 查询只返回 enabled |
+| source | TEXT | 授权来源 | 否 | 系统 | 内部 | 默认 `LICENSE` |
+| expires_at | TIMESTAMPTZ | UTC | 是 | 开发者端 | 内部 | 授权到期时间 |
+| created_at | TIMESTAMPTZ | UTC | 否 | 系统 | 内部 | `server_default now()` |
+
+### 2.10 audit_log（迁移 0004_audit，revision `control_0004`）
+
+审计记录（**只追加**，仓储不提供更新与删除入口）。安全审计日志默认保留 180 天（§35.10）；`detail_json` 按应用层字段白名单过滤（`ALLOWED_DETAIL_KEYS`），不保存密码、令牌与业务明细原文。
+
+| 字段 | 类型 | 单位/格式 | 可空 | 来源 | 敏感级别 | 说明 |
+|---|---|---|---|---|---|---|
+| audit_id | TEXT | `aud_<hex>` | 否（PK） | 系统 | 内部 | 审计标识 |
+| actor_account_id | TEXT | `acc_<hex>` | 是（登录失败等无账号场景） | 系统 | 内部 | 操作者账号 |
+| actor_role | TEXT | `MERCHANT_OWNER` / `DEVELOPER` | 是 | 系统 | 内部 | 操作者角色 |
+| tenant_id | TEXT | `tnt_<hex>` | 是（开发者动作可不归属商户） | 系统 | 内部 | 不设外键（账号可被删除，审计须保留） |
+| action | TEXT | `AUTH_LOGIN` / `AUTH_REFRESH` / `AUTH_LOGOUT` / `DEVICE_REGISTER` / `LICENSE_STATUS_CHANGE` | 否 | 系统 | 内部 | CHECK 约束；新增动作走"只加不改" |
+| target_type | TEXT | 目标类型（如 `account` / `device` / `session`） | 是 | 系统 | 内部 | — |
+| target_id | TEXT | 目标标识 | 是 | 系统 | 内部 | — |
+| result | TEXT | `SUCCESS` / `DENIED` / `ERROR` | 否 | 系统 | 内部 | CHECK 约束 |
+| request_id | TEXT | 请求链路 ID | 是 | 系统（中间件） | 内部 | 与 `X-Request-ID` 响应头一致 |
+| detail_json | JSON | 白名单键值 | 是 | 系统 | 内部 | 如 `reason` / `client_type` / `account_status`；越界键丢弃 |
+| occurred_at | TIMESTAMPTZ | UTC | 否 | 系统 | 内部 | `server_default now()`；索引 `(tenant_id, occurred_at)`、`(actor_account_id, occurred_at)` |
+
+> **离线宽限期说明**：宽限天数（默认 7 天，`LICENSE_OFFLINE_GRACE_DAYS` 可配置）不落表，
+> 由 `app.domain.license` 按"到期日 + 宽限天数"推导，避免许可证表与配置双写；
+> 评估结果 `ACTIVE` / `GRACE` 放行，`EXPIRED` / `REVOKED` / `MISSING` 拒绝（403 `LICENSE_EXPIRED`）。
+
 ## 3. 同步信封字段（sync-envelope.schema.json）
 
 **Schema**：`packages/contracts-schema/sync-envelope.schema.json`（draft 2020-12，`$id` 指向仓库相对路径）。
@@ -438,11 +560,13 @@ UNIQUE 约束 `uq_report_artifact_run_id_format`：`(run_id, format)`。
 | created_at | string | RFC 3339 date-time（UTC） | 否 | 系统 | 明文 | 信封创建时间 |
 | expires_at | string | RFC 3339 date-time（UTC） | 否 | 系统 | 明文 | 过期时间；`created_at < expires_at` 为应用层校验（draft 2020-12 无法表达跨字段比较），由 `validate_envelope_timing` 覆盖 |
 
-## 4. 与主基线完整表组的差异（M0 占位声明）
+## 4. 与主基线完整表组的差异（M2 更新）
 
 1. `analysis_run` / `analysis_result` 为 M0 持久化占位（0002_analysis_m0）：主基线规定完整字段在 0005_analysis 落地，届时"只加不改"（仅新增字段/索引，不修改既有列）。
-2. 云端 M0 不建商户业务明细表（`sku`、`movement`、`unit_cost` 等永不建于云端，降低敏感数据集中化风险）。
-3. 本地 `inventory_event` / `inventory_balance` 等表组随 M1 导入闭环迁移落地，届时本字典与 er-diagram.md 同步扩展。
+2. 云端不建商户业务明细表（`sku`、`movement`、`unit_cost` 等永不建于云端，降低敏感数据集中化风险）。
+3. 云端迁移顺序偏离主基线 §35.7 一处：`audit_log` 从规划的 `0006_sync_telemetry_audit` **提前至 `0004_audit`**——M2 第 4 项要求登录、刷新、注销、设备注册与许可证变更全部留痕；`0006` 后续只承载 `sync_envelope` 与 `telemetry_event`。
+4. 云端 `0004_config_skill_model`、`0005_task_heartbeat`、`0007_release`（配置/Skill/模型、任务/心跳、发布）随 M3 及后续里程碑落地。
+5. 本地 `inventory_event` / `inventory_balance` 等表组已随 M1 导入闭环迁移落地（见 §1.4~1.21）；本地 `sync_inbox` / `sync_outbox` / `config_cache`（§35.4 同步和配置组）随 M3 落地。
 
 ## 5. 版本记录
 
@@ -450,3 +574,4 @@ UNIQUE 约束 `uq_report_artifact_run_id_format`：`(run_id, format)`。
 |---|---|---|---|
 | M0 初版 | 2026-08-29 | 首版：本地 3 表 + 云端 2 表 + 同步信封字段；§4 占位声明（本地业务表组随 M1 落地） | `0001_meta`、`0002_analysis_m0`、`control_0001` |
 | M1 扩展 | 2026-08-29 | 兑现 §4 第 3 条占位声明：新增本地业务库 17 表（§1.4~1.20：主数据 7 + 事件 6 + 导入 2 + 报告备份 2）与值域/状态枚举（§1.21）；M0 段落原样保留（只加不改） | `0003_master_data`、`0004_inventory_events`、`0005_import`、`0006_report_backup` |
+| M2 扩展 | 2026-08-30 | 新增云端控制库 8 表（§2.3~2.10：tenant / account / session / device / product_profile / license / feature_grant / audit_log）与枚举种子（tenant_status、account_status、account_role、client_type、device_status、product_profile_status、license_status、audit_action、audit_result）；M0/M1 段落原样保留（只加不改） | `control_0002`、`control_0003`、`control_0004` |

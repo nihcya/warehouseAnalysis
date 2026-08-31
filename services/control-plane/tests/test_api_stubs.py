@@ -1,4 +1,12 @@
-"""api/v1 stub 与 Scope 依赖测试（M0）。
+"""api/v1 stub 与 Scope 依赖测试（M2 版）。
+
+M2 变更：鉴权从 dev token（``Bearer merchant``）切换为真实 JWT，
+故本文件的端点清单与取令牌方式同步调整：
+
+- 已实装的端点（``/auth/*``、``/account/me``、``/devices*``、``/events/*``）
+  移出 stub 清单，由各自的测试文件覆盖；
+- 维持 stub 的端点（M3 范围）仍断言 501 + ``details.stub``，
+  但现在必须先通过真实鉴权（无令牌 401、Scope 不足 403）。
 
 覆盖：stub 恒 501（含 details.stub 标注）、无凭证 401 AUTH_REQUIRED、
 商户 Scope 访问开发者接口 403 AUTH_FORBIDDEN、统一错误响应格式、
@@ -10,19 +18,11 @@ from __future__ import annotations
 from typing import Any
 
 import pytest
-from app.main import create_app
+from conftest import TEST_PASSWORD, create_merchant, login_token
 from fastapi.testclient import TestClient
 
-MERCHANT_HEADER = {"Authorization": "Bearer merchant"}
-DEVELOPER_HEADER = {"Authorization": "Bearer developer"}
-
-#: (method, path, 通过 Scope 依赖所需 scope；None 表示 M0 无 Scope 依赖)
-STUB_ENDPOINTS: list[tuple[str, str, str | None]] = [
-    ("POST", "/api/v1/auth/login", None),
-    ("POST", "/api/v1/auth/refresh", None),
-    ("POST", "/api/v1/auth/logout", None),
-    ("POST", "/api/v1/devices/register", None),
-    ("GET", "/api/v1/devices", "merchant"),
+#: (method, path, 通过 Scope 依赖所需 scope)
+STUB_ENDPOINTS: list[tuple[str, str, str]] = [
     ("GET", "/api/v1/config", "merchant"),
     ("GET", "/api/v1/tasks", "merchant"),
     ("POST", "/api/v1/tasks/pull", "merchant"),
@@ -33,49 +33,42 @@ STUB_ENDPOINTS: list[tuple[str, str, str | None]] = [
     ("POST", "/api/v1/heartbeat", "merchant"),
 ]
 
-#: 带 body 的 stub 端点（其余端点无请求体）
-REQUEST_BODIES: dict[str, dict[str, str]] = {
-    "/api/v1/auth/login": {"username": "dev", "password": "secret"},
-    "/api/v1/auth/refresh": {"refresh_token": "stub-refresh-token"},
-}
+#: scope -> 登录账号（演示种子提供两种角色）
+ACCOUNT_BY_SCOPE = {"merchant": "merchant_demo", "developer": "developer_demo"}
 
 
 @pytest.fixture()
-def client() -> TestClient:
-    return TestClient(create_app())
+def tokens(client: TestClient) -> dict[str, str]:
+    """按 scope 缓存登录令牌：scope -> access_token。"""
+    return {
+        scope: client.post(
+            "/api/v1/auth/login",
+            json={"username": username, "password": TEST_PASSWORD},
+        ).json()["data"]["tokens"]["access_token"]
+        for scope, username in ACCOUNT_BY_SCOPE.items()
+    }
 
 
 def _request(
     client: TestClient,
     method: str,
     path: str,
-    headers: dict[str, str] | None,
+    token: str | None,
 ) -> Any:
-    body = REQUEST_BODIES.get(path)
-    return client.request(method, path, headers=headers, json=body)
-
-
-def test_login_stub_returns_501(client: TestClient) -> None:
-    """登录 stub：501 + INTERNAL_ERROR + details 标注 stub 与端点。"""
-    resp = _request(client, "POST", "/api/v1/auth/login", None)
-    assert resp.status_code == 501
-    error = resp.json()["error"]
-    assert error["code"] == "INTERNAL_ERROR"
-    assert error["message"]
-    assert error["details"] == {"stub": True, "endpoint": "POST /api/v1/auth/login"}
-    assert error["request_id"]
+    headers = {"Authorization": f"Bearer {token}"} if token else None
+    return client.request(method, path, headers=headers)
 
 
 @pytest.mark.parametrize(("method", "path", "scope"), STUB_ENDPOINTS)
 def test_stub_endpoints_501_with_valid_scope(
     client: TestClient,
+    tokens: dict[str, str],
     method: str,
     path: str,
-    scope: str | None,
+    scope: str,
 ) -> None:
-    """携带所需 scope（或无需 scope）访问 stub：统一 501。"""
-    headers = {"Authorization": f"Bearer {scope}"} if scope else None
-    resp = _request(client, method, path, headers)
+    """携带所需 scope 的真实令牌访问 stub：统一 501。"""
+    resp = _request(client, method, path, tokens[scope])
     assert resp.status_code == 501
     error = resp.json()["error"]
     assert error["code"] == "INTERNAL_ERROR"
@@ -83,10 +76,7 @@ def test_stub_endpoints_501_with_valid_scope(
     assert error["details"]["endpoint"] == f"{method} {path}"
 
 
-@pytest.mark.parametrize(
-    ("method", "path", "scope"),
-    [endpoint for endpoint in STUB_ENDPOINTS if endpoint[2] is not None],
-)
+@pytest.mark.parametrize(("method", "path", "scope"), STUB_ENDPOINTS)
 def test_protected_endpoints_require_auth(
     client: TestClient,
     method: str,
@@ -101,9 +91,11 @@ def test_protected_endpoints_require_auth(
     assert error["request_id"]
 
 
-def test_merchant_scope_cannot_access_developer_endpoint(client: TestClient) -> None:
+def test_merchant_scope_cannot_access_developer_endpoint(
+    client: TestClient, tokens: dict[str, str]
+) -> None:
     """商户 Scope 访问开发者接口：403 + AUTH_FORBIDDEN（不执行业务逻辑）。"""
-    resp = _request(client, "GET", "/api/v1/merchants", MERCHANT_HEADER)
+    resp = _request(client, "GET", "/api/v1/merchants", tokens["merchant"])
     assert resp.status_code == 403
     error = resp.json()["error"]
     assert error["code"] == "AUTH_FORBIDDEN"
@@ -111,10 +103,47 @@ def test_merchant_scope_cannot_access_developer_endpoint(client: TestClient) -> 
     assert error["request_id"]
 
 
-def test_developer_scope_passes_dependency_but_stub_501(client: TestClient) -> None:
+def test_developer_scope_passes_dependency_but_stub_501(
+    client: TestClient, tokens: dict[str, str]
+) -> None:
     """开发者 Scope 通过依赖：接口仍未实现，返回 501。"""
-    resp = _request(client, "GET", "/api/v1/merchants", DEVELOPER_HEADER)
+    resp = _request(client, "GET", "/api/v1/merchants", tokens["developer"])
     assert resp.status_code == 501
+
+
+def test_dev_token_string_is_no_longer_accepted(client: TestClient) -> None:
+    """M0 的 dev token（``Bearer merchant``）已下线：按无效令牌返回 401。"""
+    resp = client.get("/api/v1/devices", headers={"Authorization": "Bearer merchant"})
+    assert resp.status_code == 401
+    assert resp.json()["error"]["code"] == "AUTH_REQUIRED"
+
+
+def test_tampered_token_returns_auth_required(client: TestClient) -> None:
+    """被篡改的令牌：401 AUTH_REQUIRED（不区分签名错误与过期）。"""
+    token = (
+        client.post(
+            "/api/v1/auth/login",
+            json={"username": "merchant_demo", "password": TEST_PASSWORD},
+        )
+        .json()["data"]["tokens"]["access_token"]
+    )
+    resp = client.get("/api/v1/devices", headers={"Authorization": f"Bearer {token}x"})
+    assert resp.status_code == 401
+    assert resp.json()["error"]["code"] == "AUTH_REQUIRED"
+
+
+def test_merchant_without_license_is_denied_on_business_endpoints(
+    client: TestClient, container: Any
+) -> None:
+    """未开通许可证的商户：业务端点 403 LICENSE_EXPIRED（reason=LICENSE_MISSING）。"""
+    account, _ = create_merchant(container, password="other-passw0rd", with_license=False)
+    other_token = login_token(client, account.login_name, "other-passw0rd")
+
+    resp = client.get("/api/v1/devices", headers={"Authorization": f"Bearer {other_token}"})
+    assert resp.status_code == 403
+    error = resp.json()["error"]
+    assert error["code"] == "LICENSE_EXPIRED"
+    assert error["details"]["reason"] == "LICENSE_MISSING"
 
 
 def test_error_envelope_shape(client: TestClient) -> None:
@@ -128,8 +157,8 @@ def test_error_envelope_shape(client: TestClient) -> None:
 
 def test_request_id_header_present(client: TestClient) -> None:
     """每个请求都带 X-Request-ID 响应头。"""
-    resp = _request(client, "POST", "/api/v1/auth/logout", None)
-    assert resp.status_code == 501
+    resp = _request(client, "GET", "/api/v1/config", None)
+    assert resp.status_code == 401
     assert resp.headers.get("X-Request-ID")
 
 
@@ -145,8 +174,10 @@ def test_validation_error_returns_data_validation_failed(client: TestClient) -> 
 
 def test_unexpected_error_returns_sanitized_500() -> None:
     """未捕获异常：500 + INTERNAL_ERROR，不泄露堆栈与异常信息。"""
+    from app.main import create_app
+    from conftest import build_test_container
 
-    app = create_app()
+    app = create_app(build_test_container())
 
     @app.get("/api/v1/_boom")
     def _boom() -> None:
