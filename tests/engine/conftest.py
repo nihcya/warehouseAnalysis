@@ -1,12 +1,8 @@
-"""tests/engine 共享测试辅助：formula-spec §10 容差比较与 M2 公式 ID 清单。
+"""tests/engine 共享测试辅助：formula-spec §10 容差比较。
 
 黄金与边界 fixture 的指标层数值断言统一使用本模块的容差比较：
 容差表冻结于 docs/formula-spec.md §10，按指标类别声明绝对/相对容差，
 满足其一即通过；null 值（契约中以字符串 "null" 表示）按等价判定。
-
-:data:`ALL_M2_FORMULA_IDS` 为 M2 后 ``analyze`` 应输出的完整公式 ID 集合
-（五类公式共 18 个，每个 formula_id 恰对应一个聚合指标），顺序与
-``engine.analyze`` 的拼接顺序一致。
 """
 
 from __future__ import annotations
@@ -15,22 +11,6 @@ from collections.abc import Callable
 from decimal import Decimal
 
 import pytest
-from warehouse_engine.calculators import (
-    abc_aging,
-    benchmark_compare,
-    forecasting,
-    inventory_kpi,
-    replenishment,
-)
-
-#: M2 后 analyze 输出的完整公式 ID（顺序与 engine.analyze 的拼接顺序一致）
-ALL_M2_FORMULA_IDS: tuple[str, ...] = (
-    *inventory_kpi.FORMULA_IDS,
-    *abc_aging.FORMULA_IDS,
-    *replenishment.FORMULA_IDS,
-    *forecasting.FORMULA_IDS,
-    *benchmark_compare.FORMULA_IDS,
-)
 
 #: §10 容差表：指标类别 → (绝对容差, 相对容差)
 TOLERANCE_TABLE: dict[str, tuple[str, str]] = {

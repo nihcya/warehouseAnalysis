@@ -18,6 +18,7 @@ from starlette.types import ASGIApp, Message, Receive, Scope, Send
 from app.api.health import router as health_router
 from app.api.v1.errors import register_exception_handlers
 from app.api.v1.routes import router as api_v1_router
+from app.container import Container, build_container
 from app.settings import get_settings
 
 
@@ -46,13 +47,24 @@ class RequestIDMiddleware:
         await self.app(scope, receive, send_with_request_id)
 
 
-def create_app() -> FastAPI:
-    """构建 FastAPI 应用：CORS → request_id → 异常处理器 → 路由挂载。"""
+def create_app(container: Container | None = None) -> FastAPI:
+    """构建 FastAPI 应用：容器 → CORS → request_id → 异常处理器 → 路由挂载。
+
+    ``container`` 供测试注入（如内存仓储）；缺省按配置在组合根装配
+    （``app.container.build_container``）。
+    """
     settings = get_settings()
     application = FastAPI(
         title="warehouse-control-plane",
         version=settings.APP_VERSION,
-        description="云端控制平面 /api/v1（M0 骨架：stub 路由 + 统一错误响应）",
+        description=(
+            "云端控制平面 /api/v1：认证、账号、设备与状态流（M2）；"
+            "心跳、任务、同步、配置与技术日志维持 stub（M3）"
+        ),
+    )
+    # 组合根：仓储、事件中心与应用服务的进程级单例（deps 从 app.state 取用）
+    application.state.container = (
+        container if container is not None else build_container(settings)
     )
     # 中间件后添加者在最外层：CORS 放最外，保证错误响应同样携带 CORS 头
     application.add_middleware(RequestIDMiddleware)

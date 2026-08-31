@@ -4,9 +4,7 @@
     "run_id": "run-edge-missing-lot",
     "start_date": "2026-06-01",
     "end_date": "2026-06-30",
-    "warehouse_ids": [
-      "WH-01"
-    ],
+    "warehouse_ids": ["WH-01"],
     "filters": {},
     "parameters": {}
   },
@@ -59,85 +57,19 @@
   "expected": {
     "blocked": false,
     "metrics": {
-      "F-KPI-001": {
-        "value": "0",
-        "unit": "件",
-        "sample_count": 1,
-        "tolerance": "qty"
-      },
-      "F-KPI-002": {
-        "value": "12",
-        "unit": "件",
-        "sample_count": 1,
-        "tolerance": "qty"
-      },
-      "F-KPI-003": {
-        "value": "8",
-        "unit": "件",
-        "sample_count": 1,
-        "tolerance": "qty"
-      },
-      "F-KPI-004": {
-        "value": "1.000000",
-        "unit": "ratio",
-        "sample_count": 1,
-        "tolerance": "ratio"
-      },
-      "F-KPI-005": {
-        "value": "14.40",
-        "unit": "CNY",
-        "sample_count": 1,
-        "tolerance": "money"
-      },
-      "F-COGS-001": {
-        "value": "9.60",
-        "unit": "CNY",
-        "sample_count": 1,
-        "tolerance": "money"
-      },
-      "F-KPI-006": {
-        "value": "1.333333",
-        "unit": "次/期间",
-        "sample_count": 1,
-        "tolerance": "ratio"
-      },
-      "F-KPI-007": {
-        "value": "21.750000",
-        "unit": "天",
-        "sample_count": 1,
-        "tolerance": "ratio"
-      },
-      "F-KPI-008": {
-        "value": "43.500000",
-        "unit": "天",
-        "sample_count": 1,
-        "tolerance": "ratio"
-      }
+      "F-KPI-001": {"value": "0", "unit": "件", "sample_count": 1, "tolerance": "qty"},
+      "F-KPI-002": {"value": "12", "unit": "件", "sample_count": 1, "tolerance": "qty"},
+      "F-KPI-003": {"value": "8", "unit": "件", "sample_count": 1, "tolerance": "qty"},
+      "F-KPI-004": {"value": "1.000000", "unit": "ratio", "sample_count": 1, "tolerance": "ratio"},
+      "F-KPI-005": {"value": "14.40", "unit": "CNY", "sample_count": 1, "tolerance": "money"},
+      "F-COGS-001": {"value": "9.60", "unit": "CNY", "sample_count": 1, "tolerance": "money"},
+      "F-KPI-006": {"value": "1.333333", "unit": "次/期间", "sample_count": 1, "tolerance": "ratio"},
+      "F-KPI-007": {"value": "21.750000", "unit": "天", "sample_count": 1, "tolerance": "ratio"},
+      "F-KPI-008": {"value": "43.500000", "unit": "天", "sample_count": 1, "tolerance": "ratio"}
     },
     "analyze_warnings": [
-      {
-        "code": "PARAM_MISSING",
-        "fields": [
-          "SKU-0001",
-          "lead_time_days"
-        ]
-      },
-      {
-        "code": "INSUFFICIENT_SAMPLES",
-        "fields": [
-          "SKU-0001",
-          "5"
-        ]
-      },
-      {
-        "code": "BENCHMARK_UNAVAILABLE",
-        "fields": [
-          "",
-          "全国"
-        ]
-      }
+      {"code": "ANALYSIS_PLACEHOLDER", "fields": []}
     ],
-    "derivation": "缺批次主路径（lot_id 不参与 M1 计算）：入库 20 @1.20 → 出库 8，期末 12、出库量 8、COGS = 8×1.20 = 9.60；库存价值 = 12×1.20 = 14.40（unit_cost 已知，不回退快照）；平均库存价值 (0+14.40)/2 = 7.20 → 周转率 = 9.60/7.20 = 1.333333；周转天数 = 29/1.3333… = 29×7.2/9.6 = 21.75；覆盖天数 = 12×29/8 = 43.5",
-    "analyze_warnings_note": "M2 起 analyze 输出 18 个指标（五类公式）。本段 analyze_warnings 已按 M2 移除 ANALYSIS_PLACEHOLDER 占位并补入新计算器告警，顺序固定为 校验层 -> KPI -> abc-aging -> 补货 -> 预测 -> 基准，各组内按 sku_id 字典序。各条目均为手工推导（禁止引擎回填）：NO_OUTFLOW 仅当期间无出库（含 end_date 当天出库被左闭右开排除的情形）；PARAM_MISSING 因 dataset 未提供 replenishment 且 parameters 无 lead_time_days；INSUFFICIENT_SAMPLES 因期间有效需求期数 5 < 12（30 天属 5 个自然周）；BENCHMARK_UNAVAILABLE 因未注入基准。"
+    "derivation": "缺批次主路径（lot_id 不参与 M1 计算）：入库 20 @1.20 → 出库 8，期末 12、出库量 8、COGS = 8×1.20 = 9.60；库存价值 = 12×1.20 = 14.40（unit_cost 已知，不回退快照）；平均库存价值 (0+14.40)/2 = 7.20 → 周转率 = 9.60/7.20 = 1.333333；周转天数 = 29/1.3333… = 29×7.2/9.6 = 21.75；覆盖天数 = 12×29/8 = 43.5"
   }
 }

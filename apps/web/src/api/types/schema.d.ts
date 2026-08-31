@@ -4,6 +4,26 @@
  */
 
 export interface paths {
+    "/api/v1/account/me": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 当前账号上下文
+         * @description 返回当前账号、商户与许可证评估结果（含离线宽限期状态）。
+         */
+        get: operations["read_me_api_v1_account_me_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/auth/login": {
         parameters: {
             query?: never;
@@ -14,8 +34,8 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * 账号登录（stub）
-         * @description 账号登录（M0 stub：恒 501；真实认证在 M2 交付）。
+         * 账号登录
+         * @description 校验账号密码并签发令牌对（Access 15 分钟 / Refresh 可轮换）。
          */
         post: operations["login_api_v1_auth_login_post"];
         delete?: never;
@@ -34,8 +54,8 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * 退出登录（stub）
-         * @description 退出登录（M0 stub：恒 501）。
+         * 退出登录
+         * @description 撤销当前会话；重复注销保持幂等成功（已撤销的会话也返回 200）。
          */
         post: operations["logout_api_v1_auth_logout_post"];
         delete?: never;
@@ -54,8 +74,8 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * 刷新访问令牌（stub）
-         * @description 刷新访问令牌（M0 stub：恒 501）。
+         * 刷新访问令牌
+         * @description 轮换 Refresh Token 并重签 Access Token；重放即撤销该账号全部会话。
          */
         post: operations["refresh_api_v1_auth_refresh_post"];
         delete?: never;
@@ -73,7 +93,7 @@ export interface paths {
         };
         /**
          * 拉取配置（stub）
-         * @description 拉取商户生效配置（M0 stub：恒 501）。
+         * @description 拉取商户生效配置（stub：配置发布与验签属 M3）。
          */
         get: operations["get_config_api_v1_config_get"];
         put?: never;
@@ -92,8 +112,8 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * 设备列表（stub）
-         * @description 查询当前商户的设备列表（M0 stub：恒 501）。
+         * 设备列表
+         * @description 列出当前商户的全部设备（数据范围由令牌 tenant_id 决定）。
          */
         get: operations["list_devices_api_v1_devices_get"];
         put?: never;
@@ -114,10 +134,54 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * 设备注册（stub）
-         * @description 设备注册（M0 stub：首次激活流程，不挂 Scope 依赖，恒 501）。
+         * 设备注册
+         * @description 注册设备：同一指纹幂等，已吊销拒绝，超出许可证设备数上限拒绝。
          */
         post: operations["register_device_api_v1_devices_register_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/events/snapshot": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 状态快照（轮询降级）
+         * @description 轮询降级入口：SSE 不可用时客户端每 30 秒拉一次当前状态。
+         */
+        get: operations["events_snapshot_api_v1_events_snapshot_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/events/stream": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 状态流（SSE）
+         * @description SSE 状态流：首帧快照 → 断线续传补发 → 实时事件 + 15 秒保活。
+         *
+         *     客户端断线重连时由浏览器自动带上 ``Last-Event-ID``；首次连接可用查询参数
+         *     ``last_event_id`` 指定起点。连接失败时应降级为 30 秒轮询
+         *     ``GET /events/snapshot``（DECISIONS.md D-006）。
+         */
+        get: operations["stream_events_api_v1_events_stream_get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -135,7 +199,7 @@ export interface paths {
         put?: never;
         /**
          * 设备心跳（stub）
-         * @description 设备心跳上报（M0 stub：恒 501）。
+         * @description 设备心跳上报（stub：M3 托盘 Agent 交付）。
          */
         post: operations["heartbeat_api_v1_heartbeat_post"];
         delete?: never;
@@ -153,7 +217,7 @@ export interface paths {
         };
         /**
          * 商户列表（开发者，stub）
-         * @description 开发者查询商户列表（M0 stub：恒 501）。
+         * @description 开发者查询商户列表（stub：随开发者端页面交付）。
          */
         get: operations["list_merchants_api_v1_merchants_get"];
         put?: never;
@@ -175,7 +239,7 @@ export interface paths {
         put?: never;
         /**
          * 确认同步事件（stub）
-         * @description 确认同步事件已应用（M0 stub：恒 501）。
+         * @description 确认同步事件已应用（stub：M3 交付）。
          */
         post: operations["ack_sync_api_v1_sync_ack_post"];
         delete?: never;
@@ -193,7 +257,7 @@ export interface paths {
         };
         /**
          * 拉取同步事件（stub）
-         * @description 拉取待同步的加密事件信封（M0 stub：恒 501）。
+         * @description 拉取待同步的加密事件信封（stub：M3 交付）。
          */
         get: operations["pull_sync_events_api_v1_sync_events_pull_get"];
         put?: never;
@@ -213,7 +277,7 @@ export interface paths {
         };
         /**
          * 任务列表（stub）
-         * @description 查询商户调度任务（M0 stub：恒 501）。
+         * @description 查询商户调度任务（stub：调度与状态上报属 M3）。
          */
         get: operations["list_tasks_api_v1_tasks_get"];
         put?: never;
@@ -235,7 +299,7 @@ export interface paths {
         put?: never;
         /**
          * 拉取待执行任务（stub）
-         * @description 设备拉取待执行任务（M0 stub：恒 501）。
+         * @description 设备拉取待执行任务（stub：M3 托盘 Agent 交付）。
          */
         post: operations["pull_tasks_api_v1_tasks_pull_post"];
         delete?: never;
@@ -253,7 +317,7 @@ export interface paths {
         };
         /**
          * 技术日志查询（开发者，stub）
-         * @description 开发者按商户 / 设备 / 版本 / 错误码筛选技术日志（M0 stub：恒 501）。
+         * @description 开发者按商户 / 设备 / 版本 / 错误码筛选技术日志（stub：M3 交付）。
          */
         get: operations["get_telemetry_api_v1_telemetry_get"];
         put?: never;
@@ -291,6 +355,106 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /**
+         * AccountData
+         * @description 账号信息（不含凭证字段）。
+         */
+        AccountData: {
+            /** Account Id */
+            account_id: string;
+            /** Last Login At */
+            last_login_at?: string | null;
+            /** Login Name */
+            login_name: string;
+            /** Role */
+            role: string;
+            /** Status */
+            status: string;
+            /** Tenant Id */
+            tenant_id?: string | null;
+        };
+        /**
+         * AccountMeData
+         * @description 当前账号上下文。
+         */
+        AccountMeData: {
+            account: components["schemas"]["AccountData"];
+            license: components["schemas"]["LicenseData"];
+            tenant?: components["schemas"]["TenantData"] | null;
+        };
+        /**
+         * AccountMeResponse
+         * @description ``GET /account/me`` 响应。
+         */
+        AccountMeResponse: {
+            data: components["schemas"]["AccountMeData"];
+        };
+        /**
+         * AuthData
+         * @description 登录 / 刷新响应载荷。
+         */
+        AuthData: {
+            account: components["schemas"]["AccountData"];
+            license: components["schemas"]["LicenseData"];
+            tenant?: components["schemas"]["TenantData"] | null;
+            tokens: components["schemas"]["TokenData"];
+        };
+        /**
+         * DeviceData
+         * @description 设备信息。
+         */
+        DeviceData: {
+            /** App Version */
+            app_version?: string | null;
+            /** Device Id */
+            device_id: string;
+            /** Device Type */
+            device_type: string;
+            /** Fingerprint */
+            fingerprint: string;
+            /** Last Seen At */
+            last_seen_at?: string | null;
+            /** Name */
+            name: string;
+            /** Registered At */
+            registered_at?: string | null;
+            /** Status */
+            status: string;
+            /** Tenant Id */
+            tenant_id: string;
+        };
+        /**
+         * DeviceListResponse
+         * @description 设备列表响应。
+         */
+        DeviceListResponse: {
+            /** Data */
+            data: components["schemas"]["DeviceData"][];
+        };
+        /**
+         * DeviceRegisterRequest
+         * @description 设备注册请求：``(tenant_id, fingerprint)`` 唯一，重复注册按幂等处理。
+         */
+        DeviceRegisterRequest: {
+            /** App Version */
+            app_version?: string | null;
+            /**
+             * Device Type
+             * @default DESKTOP
+             */
+            device_type: string;
+            /** Fingerprint */
+            fingerprint: string;
+            /** Name */
+            name: string;
+        };
+        /**
+         * DeviceRegisterResponse
+         * @description 设备注册响应。
+         */
+        DeviceRegisterResponse: {
+            data: components["schemas"]["DeviceData"];
+        };
         /**
          * ErrorBody
          * @description 统一错误体：``{"error": ...}`` 的内层字段。
@@ -332,22 +496,163 @@ export interface components {
             status: string;
         };
         /**
+         * LicenseData
+         * @description 许可证与离线宽限期评估结果。
+         *
+         *     ``status`` 取值：``ACTIVE`` / ``GRACE`` / ``EXPIRED`` / ``REVOKED`` / ``MISSING``；
+         *     ``GRACE`` 表示已过期但仍在离线宽限期内，此时接口仍放行，UI 必须明示剩余天数。
+         */
+        LicenseData: {
+            /** Days Remaining */
+            days_remaining?: number | null;
+            /** Expires At */
+            expires_at?: string | null;
+            /** Features */
+            features?: string[];
+            /**
+             * Grace Days
+             * @default 0
+             */
+            grace_days: number;
+            /** Grace Ends At */
+            grace_ends_at?: string | null;
+            /** License Id */
+            license_id?: string | null;
+            /**
+             * Max Devices
+             * @default 0
+             */
+            max_devices: number;
+            /** Product Profile Code */
+            product_profile_code?: string | null;
+            /** Starts At */
+            starts_at?: string | null;
+            /** Status */
+            status: string;
+        };
+        /**
          * LoginRequest
-         * @description 登录请求（M0 占位：字段仅为接口契约展示）。
+         * @description 登录请求。
+         *
+         *     ``client_type`` 与 ``device_id`` 可选：桌面工作台注册设备后登录时带上，
+         *     便于把会话与设备关联（Web 登录默认 WEB）。
          */
         LoginRequest: {
+            /**
+             * Client Type
+             * @default WEB
+             */
+            client_type: string;
+            /** Device Id */
+            device_id?: string | null;
             /** Password */
             password: string;
             /** Username */
             username: string;
         };
         /**
+         * LoginResponse
+         * @description 登录响应。
+         */
+        LoginResponse: {
+            data: components["schemas"]["AuthData"];
+        };
+        /**
+         * LogoutData
+         * @description 注销响应载荷（重复注销幂等成功）。
+         */
+        LogoutData: {
+            /**
+             * Revoked
+             * @default true
+             */
+            revoked: boolean;
+            /** Session Id */
+            session_id: string;
+        };
+        /**
+         * LogoutResponse
+         * @description 注销响应。
+         */
+        LogoutResponse: {
+            data: components["schemas"]["LogoutData"];
+        };
+        /**
          * RefreshRequest
-         * @description 刷新访问令牌请求（M0 占位）。
+         * @description 刷新访问令牌请求。
          */
         RefreshRequest: {
             /** Refresh Token */
             refresh_token: string;
+        };
+        /**
+         * RefreshResponse
+         * @description 刷新响应（与登录同构，Refresh Token 已轮换）。
+         */
+        RefreshResponse: {
+            data: components["schemas"]["AuthData"];
+        };
+        /**
+         * SnapshotData
+         * @description 状态流快照（SSE 首帧与轮询降级共用同一结构）。
+         */
+        SnapshotData: {
+            /** Devices */
+            devices: components["schemas"]["DeviceData"][];
+            /** Event Id */
+            event_id: number;
+            /**
+             * Generated At
+             * Format: date-time
+             */
+            generated_at: string;
+            license: components["schemas"]["LicenseData"];
+            /** Pending Sync Count */
+            pending_sync_count?: number | null;
+            /** Tasks */
+            tasks?: {
+                [key: string]: unknown;
+            }[];
+        };
+        /**
+         * SnapshotResponse
+         * @description ``GET /events/snapshot`` 响应（轮询降级入口）。
+         */
+        SnapshotResponse: {
+            data: components["schemas"]["SnapshotData"];
+        };
+        /**
+         * TenantData
+         * @description 商户信息。
+         */
+        TenantData: {
+            /** Name */
+            name: string;
+            /** Product Profile Id */
+            product_profile_id?: string | null;
+            /** Status */
+            status: string;
+            /** Tenant Id */
+            tenant_id: string;
+        };
+        /**
+         * TokenData
+         * @description 令牌对。
+         */
+        TokenData: {
+            /** Access Token */
+            access_token: string;
+            /** Expires In */
+            expires_in: number;
+            /**
+             * Refresh Expires At
+             * Format: date-time
+             */
+            refresh_expires_at: string;
+            /** Refresh Token */
+            refresh_token: string;
+            /** Token Type */
+            token_type: string;
         };
         /** ValidationError */
         ValidationError: {
@@ -371,6 +676,35 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    read_me_api_v1_account_me_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AccountMeResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
     login_api_v1_auth_login_post: {
         parameters: {
             query?: never;
@@ -390,7 +724,25 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["LoginResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
             /** @description Validation Error */
@@ -400,15 +752,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-            /** @description M0 未实现（stub） */
-            501: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
         };
@@ -428,11 +771,11 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["LogoutResponse"];
                 };
             };
-            /** @description M0 未实现（stub） */
-            501: {
+            /** @description Unauthorized */
+            401: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -461,7 +804,16 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["RefreshResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
             /** @description Validation Error */
@@ -471,15 +823,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-            /** @description M0 未实现（stub） */
-            501: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
         };
@@ -502,7 +845,7 @@ export interface operations {
                     "application/json": unknown;
                 };
             };
-            /** @description 缺少 Authorization 凭证 */
+            /** @description 缺少或无效的凭证 */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -546,10 +889,10 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["DeviceListResponse"];
                 };
             };
-            /** @description 缺少 Authorization 凭证 */
+            /** @description Unauthorized */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -558,17 +901,8 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description 缺少所需 Scope */
+            /** @description Forbidden */
             403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description M0 未实现（stub） */
-            501: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -585,6 +919,99 @@ export interface operations {
             path?: never;
             cookie?: never;
         };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DeviceRegisterRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeviceRegisterResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    events_snapshot_api_v1_events_snapshot_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SnapshotResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    stream_events_api_v1_events_stream_get: {
+        parameters: {
+            query?: {
+                last_event_id?: string | null;
+            };
+            header?: {
+                "Last-Event-ID"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
         requestBody?: never;
         responses: {
             /** @description Successful Response */
@@ -596,13 +1023,31 @@ export interface operations {
                     "application/json": unknown;
                 };
             };
-            /** @description M0 未实现（stub） */
-            501: {
+            /** @description Unauthorized */
+            401: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
@@ -625,7 +1070,7 @@ export interface operations {
                     "application/json": unknown;
                 };
             };
-            /** @description 缺少 Authorization 凭证 */
+            /** @description 缺少或无效的凭证 */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -672,7 +1117,7 @@ export interface operations {
                     "application/json": unknown;
                 };
             };
-            /** @description 缺少 Authorization 凭证 */
+            /** @description 缺少或无效的凭证 */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -719,7 +1164,7 @@ export interface operations {
                     "application/json": unknown;
                 };
             };
-            /** @description 缺少 Authorization 凭证 */
+            /** @description 缺少或无效的凭证 */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -766,7 +1211,7 @@ export interface operations {
                     "application/json": unknown;
                 };
             };
-            /** @description 缺少 Authorization 凭证 */
+            /** @description 缺少或无效的凭证 */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -813,7 +1258,7 @@ export interface operations {
                     "application/json": unknown;
                 };
             };
-            /** @description 缺少 Authorization 凭证 */
+            /** @description 缺少或无效的凭证 */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -860,7 +1305,7 @@ export interface operations {
                     "application/json": unknown;
                 };
             };
-            /** @description 缺少 Authorization 凭证 */
+            /** @description 缺少或无效的凭证 */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -907,7 +1352,7 @@ export interface operations {
                     "application/json": unknown;
                 };
             };
-            /** @description 缺少 Authorization 凭证 */
+            /** @description 缺少或无效的凭证 */
             401: {
                 headers: {
                     [name: string]: unknown;

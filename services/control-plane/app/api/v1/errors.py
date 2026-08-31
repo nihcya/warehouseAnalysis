@@ -2,6 +2,10 @@
 
 所有错误响应统一为 ``{"error": {"code", "message", "details", "request_id"}}``；
 错误码只取 ``contracts.enums.ErrorCode`` 已有值（M0 冻结，不私造错误码）。
+
+M2：应用层只抛 ``app.application.errors.ControlPlaneError``，
+由 ``register_exception_handlers`` 按 ``ERROR_STATUS`` 映射为 HTTP 状态码，
+api 层不重复定义业务规则。
 """
 
 from __future__ import annotations
@@ -14,6 +18,22 @@ from fastapi import FastAPI, Request
 from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
+
+from app.application.errors import ControlPlaneError
+
+#: 错误码 -> HTTP 状态码（未列出的错误码按 DEFAULT_ERROR_STATUS 处理）
+ERROR_STATUS: dict[ErrorCode, int] = {
+    ErrorCode.AUTH_REQUIRED: 401,
+    ErrorCode.AUTH_FORBIDDEN: 403,
+    ErrorCode.LICENSE_EXPIRED: 403,
+    ErrorCode.DEVICE_REVOKED: 403,
+    ErrorCode.DATA_VALIDATION_FAILED: 400,
+    ErrorCode.DUPLICATE_EVENT: 409,
+    ErrorCode.INTERNAL_ERROR: 500,
+}
+
+#: 未列入 ERROR_STATUS 的错误码默认状态码
+DEFAULT_ERROR_STATUS = 400
 
 
 class ApiError(Exception):
@@ -71,7 +91,18 @@ def _error_body(
 
 
 def register_exception_handlers(app: FastAPI) -> None:
-    """注册全局异常处理器：ApiError、请求校验错误与未捕获异常统一格式。"""
+    """注册全局异常处理器：应用层错误、ApiError、校验错误与未捕获异常统一格式。"""
+
+    @app.exception_handler(ControlPlaneError)
+    async def handle_control_plane_error(
+        request: Request, exc: ControlPlaneError
+    ) -> JSONResponse:
+        return JSONResponse(
+            status_code=ERROR_STATUS.get(exc.code, DEFAULT_ERROR_STATUS),
+            content={
+                "error": _error_body(exc.code, exc.message, exc.details, _request_id_of(request))
+            },
+        )
 
     @app.exception_handler(ApiError)
     async def handle_api_error(request: Request, exc: ApiError) -> JSONResponse:

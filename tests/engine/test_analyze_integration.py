@@ -1,7 +1,8 @@
-"""analyze 集成测试：五类公式真实计算、数据质量报告、确定性与序列化往返。
+"""analyze 集成测试（Task 3）：真实 KPI 路径、占位 Warning、数据质量报告、确定性。
 
-- M2 后 analyze 输出 18 个指标（KPI/COGS 9 + ABC/库龄/呆滞 3 + 补货 3 +
-  预测 2 + 基准 1），``ANALYSIS_PLACEHOLDER`` 占位 Warning 已移除；
+- KPI/COGS 走真实计算（9 个公式指标），不再以占位结果返回；
+- abc-aging/replenishment/forecasting/benchmark 四类维持 M0 占位行为与
+  ANALYSIS_PLACEHOLDER Warning；
 - 数据质量报告：Warning 按码汇总（计数 + 明细）随 AnalysisResult 返回；
 - 确定性：同一输入两次 analyze 序列化结果逐字节一致；
 - progress 回调按阶段推进且以 1.0 收尾。
@@ -21,8 +22,7 @@ from contracts import (
     SnapshotRecord,
 )
 from warehouse_engine import WarehouseEngine
-
-from tests.engine.conftest import ALL_M2_FORMULA_IDS
+from warehouse_engine.calculators.inventory_kpi import FORMULA_IDS as KPI_FORMULA_IDS
 
 REQUEST = AnalysisRequest(
     run_id="run-analyze-0001",
@@ -96,19 +96,13 @@ def _dataset() -> EngineDataset:
     )
 
 
-def test_analyze_returns_all_eighteen_metrics() -> None:
-    """analyze 输出五类公式共 18 个指标，每个 formula_id 恰一个。
-
-    指标按计算器分组拼接（KPI → ABC/库龄/呆滞 → 补货 → 预测 → 基准），组内
-    顺序由各计算器自行决定（如 F-COGS-001 紧随 F-KPI-005 输出），故此处断言
-    集合而非逐项顺序。
-    """
+def test_analyze_returns_real_kpi_metrics() -> None:
+    """analyze 返回真实 KPI/COGS 指标（9 个公式、数值非占位）。"""
     result = WarehouseEngine().analyze(REQUEST, _dataset())
 
     formula_ids = [metric.formula_id for metric in result.metrics]
-    assert len(formula_ids) == 18
-    assert set(formula_ids) == set(ALL_M2_FORMULA_IDS)
-    assert len(set(formula_ids)) == 18  # 每个 formula_id 恰一个指标
+    assert len(formula_ids) == 9
+    assert set(formula_ids) == set(KPI_FORMULA_IDS)
     by_id = {metric.formula_id: metric for metric in result.metrics}
     # SKU-0001：期初 20、出库 5、期末 15；SKU-0002：出库 4、期末 -4（无成本事件）
     assert by_id["F-KPI-001"].value == "20"
@@ -118,17 +112,21 @@ def test_analyze_returns_all_eighteen_metrics() -> None:
     assert by_id["F-COGS-001"].value == "6.00"
 
 
-def test_analyze_no_longer_emits_placeholder_warning() -> None:
-    """M2 后四类计算器全部实装，结果中不再出现 ANALYSIS_PLACEHOLDER。"""
+def test_analyze_placeholder_warning_scopes_to_remaining_calculators() -> None:
+    """占位 Warning 仅标注四类未实现计算器，不再表示 KPI/COGS 为占位。"""
     result = WarehouseEngine().analyze(REQUEST, _dataset())
 
-    assert [w for w in result.warnings if w.code == "ANALYSIS_PLACEHOLDER"] == []
-    # 四类公式的指标均已真实产出
-    produced = {metric.formula_id for metric in result.metrics}
-    assert {"F-ABC-001", "F-AGE-001", "F-STALE-001"} <= produced
-    assert {"F-REPL-001", "F-REPL-002", "F-REPL-003"} <= produced
-    assert {"F-FCST-001", "F-FCST-002"} <= produced
-    assert "F-BM-001" in produced
+    placeholders = [w for w in result.warnings if w.code == "ANALYSIS_PLACEHOLDER"]
+    assert len(placeholders) == 1
+    assert placeholders[0].blocking is False
+    assert "abc-aging" in placeholders[0].message
+    assert "KPI" in placeholders[0].message  # 说明 KPI 已为真实结果
+    # 结果不含四类占位计算器的公式指标
+    formula_ids = {metric.formula_id for metric in result.metrics}
+    assert not any(
+        formula_id.startswith(("F-ABC", "F-AGE", "F-STALE", "F-REPL", "F-FCST", "F-BM"))
+        for formula_id in formula_ids
+    )
 
 
 def test_analyze_warning_codes_come_from_validation_and_calculators() -> None:
@@ -140,11 +138,8 @@ def test_analyze_warning_codes_come_from_validation_and_calculators() -> None:
     assert "NEGATIVE_BALANCE" in codes
     # 计算层：SKU-0002 出库无已知成本记录
     assert "UNIT_COST_MISSING" in codes
-    # 补货：数据集未提供 lead_time_days 且未配置参数
-    assert "PARAM_MISSING" in codes
-    # 基准：未注入基准数据（不做经验值兜底）
-    assert "BENCHMARK_UNAVAILABLE" in codes
-    assert all(w.blocking is False for w in result.warnings)
+    # 占位：四类未实现计算器
+    assert "ANALYSIS_PLACEHOLDER" in codes
 
 
 def test_analyze_builds_data_quality_report() -> None:
@@ -153,13 +148,7 @@ def test_analyze_builds_data_quality_report() -> None:
 
     assert result.data_quality is not None
     entries = {entry.code: entry for entry in result.data_quality}
-    assert set(entries) >= {
-        "NEGATIVE_BALANCE",
-        "UNIT_COST_MISSING",
-        "PARAM_MISSING",
-        "BENCHMARK_UNAVAILABLE",
-    }
-    assert "ANALYSIS_PLACEHOLDER" not in entries
+    assert set(entries) >= {"NEGATIVE_BALANCE", "UNIT_COST_MISSING", "ANALYSIS_PLACEHOLDER"}
 
     # 计数与明细长度一致，且明细就是对应的 Warning
     for code, entry in entries.items():
@@ -209,13 +198,9 @@ def test_analyze_empty_dataset_outputs_null_degraded_metrics() -> None:
     assert by_id["F-KPI-004"].reason == "empty_dataset"
     assert by_id["F-KPI-004"].sample_count == 0
     assert by_id["F-KPI-008"].value == "null"
-    # 空数据集下 M2 的新计算器同样降级：补货 null、预测 null、基准 null
-    assert by_id["F-REPL-001"].value == "null"
-    assert by_id["F-FCST-001"].value == "null"
-    assert by_id["F-BM-001"].value == "null"
-    # 数据质量报告已生成：空数据集下无补货参数告警，仅有基准不可用的非阻断提示
+    # 数据质量报告已生成：仅有四类占位计算器的 ANALYSIS_PLACEHOLDER 条目
     assert result.data_quality is not None
-    assert [entry.code for entry in result.data_quality] == ["BENCHMARK_UNAVAILABLE"]
+    assert [entry.code for entry in result.data_quality] == ["ANALYSIS_PLACEHOLDER"]
 
 
 def test_analyze_result_serializes_through_contract_roundtrip() -> None:
