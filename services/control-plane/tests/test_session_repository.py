@@ -11,17 +11,16 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterator
 from datetime import UTC, datetime, timedelta
-from typing import Iterator
 
 import pytest
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
-
 from app.domain.session import ClientType
 from app.domain.session import Session as DomainSession
 from app.infrastructure.db.models import Base
 from app.infrastructure.db.repositories import PostgresIdentityRepository
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
 
 #: 统一取整到秒，规避 SQLite 与 PostgreSQL 的微秒精度差异
 _NOW = datetime.now(UTC).replace(microsecond=0)

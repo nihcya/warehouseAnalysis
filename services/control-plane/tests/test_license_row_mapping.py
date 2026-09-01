@@ -14,11 +14,10 @@ from __future__ import annotations
 import typing
 from datetime import UTC, date, datetime
 
-from sqlalchemy import Date
-
 from app.domain.license import License, LicenseStatus
 from app.infrastructure.db.models import LicenseRow
 from app.infrastructure.db.repositories import _license_from_row
+from sqlalchemy import Date
 
 
 def _make_row() -> LicenseRow:
