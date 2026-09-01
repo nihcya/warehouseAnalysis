@@ -113,8 +113,8 @@ def _license_from_row(row: LicenseRow) -> License:
         license_id=row.license_id,
         tenant_id=row.tenant_id,
         product_profile_id=row.product_profile_id,
-        starts_at=row.starts_at.date(),
-        expires_at=row.expires_at.date(),
+        starts_at=row.starts_at,
+        expires_at=row.expires_at,
         max_devices=row.max_devices,
         status=LicenseStatus(row.status),
     )
@@ -264,6 +264,9 @@ class PostgresIdentityRepository:
                 .values(
                     refresh_token_hash=session.refresh_token_hash,
                     previous_refresh_token_hash=session.previous_refresh_token_hash,
+                    # 轮换时应用层会重算 expires_at（auth_usecase._rotate），
+                    # 必须一并落库，否则会话 TTL 不随刷新延长（Issue #17）。
+                    expires_at=session.expires_at,
                     rotated_at=session.rotated_at,
                     revoked_at=session.revoked_at,
                 )

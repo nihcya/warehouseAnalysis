@@ -11,7 +11,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import date, datetime
 
 from sqlalchemy import (
     JSON,
@@ -139,8 +139,10 @@ class LicenseRow(Base):
     product_profile_id: Mapped[str] = mapped_column(
         Text, ForeignKey("product_profile.product_profile_id"), nullable=False
     )
-    starts_at: Mapped[datetime] = mapped_column(Date, nullable=False)
-    expires_at: Mapped[datetime] = mapped_column(Date, nullable=False)
+    #: 许可证生效/到期为「自然日」语义（迁移中列为 sa.Date），领域模型亦为 date。
+    #: 曾误注解为 Mapped[datetime]，导致读取时调用 .date() 抛 AttributeError（Issue #18）。
+    starts_at: Mapped[date] = mapped_column(Date, nullable=False)
+    expires_at: Mapped[date] = mapped_column(Date, nullable=False)
     max_devices: Mapped[int] = mapped_column(Integer, nullable=False)
     status: Mapped[str] = mapped_column(Text, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
