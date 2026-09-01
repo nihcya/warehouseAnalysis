@@ -4,7 +4,9 @@
     "run_id": "run-edge-empty",
     "start_date": "2026-06-01",
     "end_date": "2026-06-30",
-    "warehouse_ids": ["WH-01"],
+    "warehouse_ids": [
+      "WH-01"
+    ],
     "filters": {},
     "parameters": {}
   },
@@ -18,19 +20,75 @@
   "expected": {
     "blocked": false,
     "metrics": {
-      "F-KPI-001": {"value": "0", "unit": "件", "sample_count": 0, "tolerance": "qty"},
-      "F-KPI-002": {"value": "0", "unit": "件", "sample_count": 0, "tolerance": "qty"},
-      "F-KPI-003": {"value": "0", "unit": "件", "sample_count": 0, "tolerance": "qty"},
-      "F-KPI-004": {"value": "null", "unit": "ratio", "sample_count": 0, "tolerance": "ratio", "reason": "empty_dataset"},
-      "F-KPI-005": {"value": "0.00", "unit": "CNY", "sample_count": 0, "tolerance": "money"},
-      "F-COGS-001": {"value": "0.00", "unit": "CNY", "sample_count": 0, "tolerance": "money"},
-      "F-KPI-006": {"value": "null", "unit": "次/期间", "sample_count": 0, "tolerance": "ratio", "reason": "avg_inventory_value_nonpositive"},
-      "F-KPI-007": {"value": "null", "unit": "天", "sample_count": 0, "tolerance": "ratio", "reason": "avg_inventory_value_nonpositive"},
-      "F-KPI-008": {"value": "null", "unit": "天", "sample_count": 0, "tolerance": "ratio", "reason": "nonpositive_closing"}
+      "F-KPI-001": {
+        "value": "0",
+        "unit": "件",
+        "sample_count": 0,
+        "tolerance": "qty"
+      },
+      "F-KPI-002": {
+        "value": "0",
+        "unit": "件",
+        "sample_count": 0,
+        "tolerance": "qty"
+      },
+      "F-KPI-003": {
+        "value": "0",
+        "unit": "件",
+        "sample_count": 0,
+        "tolerance": "qty"
+      },
+      "F-KPI-004": {
+        "value": "null",
+        "unit": "ratio",
+        "sample_count": 0,
+        "tolerance": "ratio",
+        "reason": "empty_dataset"
+      },
+      "F-KPI-005": {
+        "value": "0.00",
+        "unit": "CNY",
+        "sample_count": 0,
+        "tolerance": "money"
+      },
+      "F-COGS-001": {
+        "value": "0.00",
+        "unit": "CNY",
+        "sample_count": 0,
+        "tolerance": "money"
+      },
+      "F-KPI-006": {
+        "value": "null",
+        "unit": "次/期间",
+        "sample_count": 0,
+        "tolerance": "ratio",
+        "reason": "avg_inventory_value_nonpositive"
+      },
+      "F-KPI-007": {
+        "value": "null",
+        "unit": "天",
+        "sample_count": 0,
+        "tolerance": "ratio",
+        "reason": "avg_inventory_value_nonpositive"
+      },
+      "F-KPI-008": {
+        "value": "null",
+        "unit": "天",
+        "sample_count": 0,
+        "tolerance": "ratio",
+        "reason": "nonpositive_closing"
+      }
     },
     "analyze_warnings": [
-      {"code": "ANALYSIS_PLACEHOLDER", "fields": []}
+      {
+        "code": "BENCHMARK_UNAVAILABLE",
+        "fields": [
+          "",
+          "全国"
+        ]
+      }
     ],
-    "derivation": "空数据集：参与统计 SKU 数 0，总量指标为 0；动销率分母为 0 输出 null（empty_dataset）；平均库存价值 0 不为正 → 周转率/天数 null；期末 0 → 覆盖天数 null（§3.4/§3.7/§3.8 边界）"
+    "derivation": "空数据集：参与统计 SKU 数 0，总量指标为 0；动销率分母为 0 输出 null（empty_dataset）；平均库存价值 0 不为正 → 周转率/天数 null；期末 0 → 覆盖天数 null（§3.4/§3.7/§3.8 边界）",
+    "analyze_warnings_note": "M2 起 analyze 输出 18 个指标（五类公式）。本段 analyze_warnings 已按 M2 移除 ANALYSIS_PLACEHOLDER 占位并补入新计算器告警，顺序固定为 校验层 -> KPI -> abc-aging -> 补货 -> 预测 -> 基准，各组内按 sku_id 字典序。各条目均为手工推导（禁止引擎回填）：NO_OUTFLOW 仅当期间无出库（含 end_date 当天出库被左闭右开排除的情形）；PARAM_MISSING 因 dataset 未提供 replenishment 且 parameters 无 lead_time_days；INSUFFICIENT_SAMPLES 因期间有效需求期数 5 < 12（30 天属 5 个自然周）；BENCHMARK_UNAVAILABLE 因未注入基准。"
   }
 }

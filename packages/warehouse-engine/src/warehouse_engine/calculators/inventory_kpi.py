@@ -222,9 +222,14 @@ def _metric(
     )
 
 
-def calculate(request: AnalysisRequest, dataset: EngineDataset) -> InventoryKpiResult:
+def calculate(
+    request: AnalysisRequest,
+    dataset: EngineDataset,
+    outcome: ReplayOutcome | None = None,
+) -> InventoryKpiResult:
     """按 formula-spec §3 计算 F-KPI-001~008 与 F-COGS-001。"""
-    outcome = replay_movements(request, dataset.movements)
+    if outcome is None:
+        outcome = replay_movements(request, dataset.movements)
     snapshots = _scoped_snapshots(request, dataset.snapshots)
     latest_snapshot = _latest_snapshot_by_sku(snapshots)
     rollup = _rollup_sku(outcome)

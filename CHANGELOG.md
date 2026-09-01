@@ -3,6 +3,30 @@
 本文件遵循 Keep a Changelog 风格，版本号遵循语义化版本（SemVer），日期格式为 YYYY-MM-DD。
 本文件是开发者 B 侧的变更记录：M0 的 contracts、engine、Skill、公式文档等组件由 B 并行交付，在此统一记录；开发者 A 侧组件（Desktop、Control API、Local DB 等）的变更由 A 侧记录。
 
+## [0.3.0] - 2026-08-30 - 未发布（M2：分析 Skill 实现）
+
+### Added
+
+- 重放内核扩展（`replay.py`，向后兼容追加字段，M1 既有 120 个引擎测试无回归）：新增逐日出库序列 `daily_out_by_sku`（含零出库日补 0、当日出库+报废−退货为负时逐日取 `max(0, ·)`）、出入库日期索引 `last_outbound_date_by_sku` / `first_inbound_date_by_sku`（全重放视界，冲销不更新索引）、批次余额 `lot_balances`（FIFO 消耗、同批次再入库取最近入库日期）与全历史/残余入库加权聚合 `all_inbound_by_sku` / `residual_inbound_by_sku`（O(1) 内存换算平均库龄）；盘点后清空批次账使残余 ≠ 期末余额，由上层按「构成不足」回退。
+- 四个公式实现：`calculators/abc_aging.py`（F-ABC-001/F-AGE-001/F-STALE-001）、`replenishment.py`（F-REPL-001~003）、`forecasting.py`（F-FCST-001~002）、`benchmark_compare.py`（F-BM-001）——按 `docs/formula-spec.md` 0.1.0 冻结口径实装；`WarehouseEngine.analyze` 现输出五类公式共 18 个数据集级聚合指标，移除 `ANALYSIS_PLACEHOLDER` 占位（§2.2 结果形态约定：per-SKU 明细留在计算器返回对象内，契约零改动，`schema_version` 保持 1.0）。
+- 实验模型隔离（`experimental/`，§8.1 落地）：类型层（`ExperimentalForecastResult` 不可转为 `ResultMetric`、契约层即拒绝）+ 导入层（`engine` 与四个计算器均不 import 本包，默认路径不加载 `statsmodels`）+ 依赖层（`seasonal_naive` 可运行示例 / `holt_winters` 占位桩显式报未实装）；结果携带 `EXPERIMENTAL_DISCLAIMER`，不进默认 `AnalysisResult`、不参与黄金数据验收。
+- 共享辅助：`calculators/_common.py` 统一舍入（金额 HALF_UP 0.01、比率 6 位）、null 表示、parameters 容错读取与指标构造，避免四个新增计算器各写一份而漂移。
+- 黄金数据：新增 `tests/fixtures/golden/v0.3.0/`（ABC/库龄/呆滞焦点：累计占比 80/95 边界、五档库龄、新品豁免优先于天数判定、呆滞率 0.25）与 `v0.4.0/`（补货/预测/基准焦点：σ_d=0 边界、非恒定 σ_d≈15.257924、基准相对偏差 −0.173913）；回填 `v0.1.0`/`v0.2.0` 结构性可推导项（F-ABC-001 参与分类 SKU 数、F-REPL-001~003 缺参数降级、F-BM-001 null+`benchmark_unavailable`），全部手算推导、禁止引擎回填。
+- 版本化基准 fixture：`tests/fixtures/benchmarks/v0.1.0.json`（八字段合规 + 不合规记录丢弃用例），经 `request.parameters["benchmarks"]` 注入（引擎不读文件、不访问网络）。
+
+### Changed
+
+- 版本提升：warehouse-engine 0.2.0 → 0.3.0（formula_version 保持 0.1.0，口径未变，仅实现扩展，历史结果无需重算）；kpi Skill 兼容范围放宽为 `>=0.2.0,<0.4.0`，四个 Skill 0.1.0 → 0.3.0 转 implemented（engine `>=0.3.0,<0.4.0`）。
+- 重放内核 `apply()` 改为返回对 `period_out_qty` 的增量（已按 `base_in_period` 门控），`apply_and_track` 复用该增量累计逐日出库，保证 `Σ daily_out == period_out_qty` 恒成立。
+- `inventory_kpi.calculate` 新增可选 `outcome` 入参（不传时自行重放），`analyze` 现只重放一次并将结果注入四个计算器。
+- 边界 fixture（5 份）analyze_warnings 由 `ANALYSIS_PLACEHOLDER` 更新为 M2 真实告警（NO_OUTFLOW/PARAM_MISSING/INSUFFICIENT_SAMPLES/BENCHMARK_UNAVAILABLE），逐条手验触发条件。
+
+### 说明
+
+- M2 实现决策（待 A/B 复核，完整记录在 `docs/m2-handover-b.md`）：§8.3 的「有效需求期数 n < 12」按全期间自然周数理解（非预测窗口），否则缺省 split_date 下会恒定触发降级；`ReplenishmentRecord.avg_daily_demand` 与 §7.2 的 d̄ 口径不同源，本计算器不消费该字段；BM.DEVIATION_RATIO 跨单位取相对偏差均值（不求和）。
+- wheel 不在 M2 产出（留 M3 发布门槛）；如需本地构建与独立环境验证见 `docs/m2-handover-b.md` §1。
+- 兼容性要求详见 `docs/compatibility-matrix.md`。
+
 ## [0.2.0] - 2026-08-29 - 未发布（M1：KPI/COGS 引擎实现）
 
 ### Added

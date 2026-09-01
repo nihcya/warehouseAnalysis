@@ -1,0 +1,148 @@
+{
+  "note": "M2 黄金数据集 v0.3.0：ABC 分层 / 库龄 / 呆滞焦点。设计要点——6 个 SKU 的期末余额、入库日期与末次出库日期均可手工核算：SKU-0001~0003 带 lot_id 走批次库龄口径（分别落在 30-60 / 60-90 / 90-180 档），SKU-0004~0006 无批次走 FIFO 残余加权口径（分别落在 0-30 / 180+ / 90-180 档）；出库金额 40/30/20/8/2/0 使累计占比 0.40/0.70/0.90/0.98/1.00 覆盖 A/A/B/C/C 与 amt=0 归 C；SKU-0006 末次出库缺失、首次入库 2026-01-10（早于豁免分界 2026-03-02），无出库天数 171 > 90 判为呆滞。全部数值见 expected.json 的 derivation 字段，禁止以引擎输出回填。",
+  "request": {
+    "schema_version": "1.0",
+    "run_id": "run-golden-v030",
+    "start_date": "2026-06-01",
+    "end_date": "2026-06-30",
+    "warehouse_ids": ["WH-01"],
+    "filters": {},
+    "parameters": {
+      "industry": "综合零售"
+    }
+  },
+  "dataset": {
+    "schema_version": "1.0",
+    "skus": [
+      { "sku_id": "SKU-0001", "name": "测试品 0001", "category": "测试", "unit": "件", "unit_cost": "1.00", "currency": "CNY" },
+      { "sku_id": "SKU-0002", "name": "测试品 0002", "category": "测试", "unit": "件", "unit_cost": "1.00", "currency": "CNY" },
+      { "sku_id": "SKU-0003", "name": "测试品 0003", "category": "测试", "unit": "件", "unit_cost": "1.00", "currency": "CNY" },
+      { "sku_id": "SKU-0004", "name": "测试品 0004", "category": "测试", "unit": "件", "unit_cost": "1.00", "currency": "CNY" },
+      { "sku_id": "SKU-0005", "name": "测试品 0005", "category": "测试", "unit": "件", "unit_cost": "1.00", "currency": "CNY" },
+      { "sku_id": "SKU-0006", "name": "测试品 0006", "category": "测试", "unit": "件", "unit_cost": "3.00", "currency": "CNY" }
+    ],
+    "movements": [
+      {
+        "event_id": "EVT-0001",
+        "sku_id": "SKU-0001",
+        "move_type": "INBOUND",
+        "quantity": "200",
+        "move_date": "2026-05-20",
+        "occurred_at": "2026-05-20T08:00:00Z",
+        "warehouse_id": "WH-01",
+        "unit_cost": "1.00",
+        "lot_id": "LOT-0001",
+        "source": "IMPORT"
+      },
+      {
+        "event_id": "EVT-0002",
+        "sku_id": "SKU-0001",
+        "move_type": "OUTBOUND",
+        "quantity": "40",
+        "move_date": "2026-06-05",
+        "occurred_at": "2026-06-05T08:00:00Z",
+        "warehouse_id": "WH-01",
+        "source": "IMPORT"
+      },
+      {
+        "event_id": "EVT-0003",
+        "sku_id": "SKU-0002",
+        "move_type": "INBOUND",
+        "quantity": "200",
+        "move_date": "2026-04-25",
+        "occurred_at": "2026-04-25T08:00:00Z",
+        "warehouse_id": "WH-01",
+        "unit_cost": "1.00",
+        "lot_id": "LOT-0002",
+        "source": "IMPORT"
+      },
+      {
+        "event_id": "EVT-0004",
+        "sku_id": "SKU-0002",
+        "move_type": "OUTBOUND",
+        "quantity": "30",
+        "move_date": "2026-06-08",
+        "occurred_at": "2026-06-08T08:00:00Z",
+        "warehouse_id": "WH-01",
+        "source": "IMPORT"
+      },
+      {
+        "event_id": "EVT-0005",
+        "sku_id": "SKU-0003",
+        "move_type": "INBOUND",
+        "quantity": "200",
+        "move_date": "2026-03-02",
+        "occurred_at": "2026-03-02T08:00:00Z",
+        "warehouse_id": "WH-01",
+        "unit_cost": "1.00",
+        "lot_id": "LOT-0003",
+        "source": "IMPORT"
+      },
+      {
+        "event_id": "EVT-0006",
+        "sku_id": "SKU-0003",
+        "move_type": "OUTBOUND",
+        "quantity": "20",
+        "move_date": "2026-06-12",
+        "occurred_at": "2026-06-12T08:00:00Z",
+        "warehouse_id": "WH-01",
+        "source": "IMPORT"
+      },
+      {
+        "event_id": "EVT-0007",
+        "sku_id": "SKU-0004",
+        "move_type": "INBOUND",
+        "quantity": "200",
+        "move_date": "2026-06-10",
+        "occurred_at": "2026-06-10T08:00:00Z",
+        "warehouse_id": "WH-01",
+        "unit_cost": "1.00",
+        "source": "IMPORT"
+      },
+      {
+        "event_id": "EVT-0008",
+        "sku_id": "SKU-0004",
+        "move_type": "OUTBOUND",
+        "quantity": "8",
+        "move_date": "2026-06-18",
+        "occurred_at": "2026-06-18T08:00:00Z",
+        "warehouse_id": "WH-01",
+        "source": "IMPORT"
+      },
+      {
+        "event_id": "EVT-0009",
+        "sku_id": "SKU-0005",
+        "move_type": "INBOUND",
+        "quantity": "200",
+        "move_date": "2025-12-15",
+        "occurred_at": "2025-12-15T08:00:00Z",
+        "warehouse_id": "WH-01",
+        "unit_cost": "1.00",
+        "source": "IMPORT"
+      },
+      {
+        "event_id": "EVT-0010",
+        "sku_id": "SKU-0005",
+        "move_type": "OUTBOUND",
+        "quantity": "2",
+        "move_date": "2026-06-22",
+        "occurred_at": "2026-06-22T08:00:00Z",
+        "warehouse_id": "WH-01",
+        "source": "IMPORT"
+      },
+      {
+        "event_id": "EVT-0011",
+        "sku_id": "SKU-0006",
+        "move_type": "INBOUND",
+        "quantity": "100",
+        "move_date": "2026-01-10",
+        "occurred_at": "2026-01-10T08:00:00Z",
+        "warehouse_id": "WH-01",
+        "unit_cost": "3.00",
+        "source": "IMPORT"
+      }
+    ],
+    "snapshots": [],
+    "replenishment": []
+  }
+}
