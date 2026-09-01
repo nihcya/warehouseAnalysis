@@ -121,12 +121,14 @@ def test_validation_failure_returns_issues_without_analyze(
 
 
 def test_create_engine_provider_reads_env_once(monkeypatch) -> None:
-    """组合根分支：缺省与 fake 返回 FakeEngineProvider，local 返回 LocalEngineProvider。"""
+    """组合根分支：B 侧 engine 0.3.0 交付后缺省走真实引擎，fake 需显式指定。"""
+    # 缺省：真实引擎（Issue #9，engine 0.3.0 已交付五类公式共 18 指标）
     monkeypatch.delenv("WORKBENCH_ENGINE", raising=False)
-    assert isinstance(create_engine_provider(), FakeEngineProvider)
-
-    monkeypatch.setenv("WORKBENCH_ENGINE", "fake")
-    assert isinstance(create_engine_provider(), FakeEngineProvider)
+    assert isinstance(create_engine_provider(), LocalEngineProvider)
 
     monkeypatch.setenv("WORKBENCH_ENGINE", "local")
     assert isinstance(create_engine_provider(), LocalEngineProvider)
+
+    # 冻结结果联调仍可显式切回 FakeEngine
+    monkeypatch.setenv("WORKBENCH_ENGINE", "fake")
+    assert isinstance(create_engine_provider(), FakeEngineProvider)

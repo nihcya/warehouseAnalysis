@@ -26,6 +26,7 @@ from .application.analysis_usecase import (
 from .application.backup_manager import BackupManager
 from .application.import_manager import CsvImportManager
 from .application.report_export import ReportExportManager
+from .domain.benchmark_provider import BenchmarkProvider
 from .domain.dataset_provider import DatasetProvider
 from .domain.engine_provider import EngineProvider
 from .domain.result_store import ResultStore
@@ -33,6 +34,7 @@ from .infrastructure.api_client.client import OfflineApiClient
 from .infrastructure.api_client.http_client import HttpApiClient
 from .infrastructure.api_client.token_store import TokenStore
 from .infrastructure.backup.backup_service import BackupService
+from .infrastructure.benchmark.benchmark_loader import JsonBenchmarkProvider
 from .infrastructure.db.dataset_adapter import SqliteDatasetAdapter
 from .infrastructure.db.result_store import SqlResultStore
 from .infrastructure.engine_adapter.providers import FakeEngineProvider, LocalEngineProvider
@@ -40,8 +42,11 @@ from .infrastructure.report.exporter import ReportExporter
 from .presentation.main_window import MainWindow
 from .workers.status_stream_worker import StatusStreamWorker
 
-#: 引擎选择环境变量（fake | local，缺省 fake，仅组合根读取）
+#: 引擎选择环境变量（fake | local，缺省 local，仅组合根读取）
 ENGINE_ENV = "WORKBENCH_ENGINE"
+
+#: 引擎缺省实现：B 侧 engine 0.3.0 已交付五类公式（PR #14），故默认走真实引擎
+DEFAULT_ENGINE = "local"
 
 #: 数据源选择环境变量（local | fixture，缺省 local，仅组合根读取）
 DATASET_ENV = "WORKBENCH_DATASET"
@@ -51,6 +56,24 @@ REPO_ROOT = Path(__file__).resolve().parents[3]
 
 #: FakeEngine 冻结 fixture（B 侧交付，docs/m0-handover-b.md）
 FAKE_FIXTURE_PATH = REPO_ROOT / "tests" / "fixtures" / "fake-analysis.json"
+
+#: 基准数据集路径环境变量（缺省为 B 侧随引擎交付的 v0.1.0 fixture，Issue #10）
+BENCHMARK_PATH_ENV = "WORKBENCH_BENCHMARK_PATH"
+
+#: 基准匹配行业环境变量（缺省与 v0.1.0 fixture 的 industry 对齐）
+BENCHMARK_INDUSTRY_ENV = "WORKBENCH_BENCHMARK_INDUSTRY"
+
+#: 基准匹配区域环境变量（缺省与 v0.1.0 fixture 的 region 对齐）
+BENCHMARK_REGION_ENV = "WORKBENCH_BENCHMARK_REGION"
+
+#: 默认基准数据集（B 侧交付，F-BM-001 专用）
+DEFAULT_BENCHMARK_PATH = REPO_ROOT / "tests" / "fixtures" / "benchmarks" / "v0.1.0.json"
+
+#: 默认基准匹配行业
+DEFAULT_BENCHMARK_INDUSTRY = "综合零售"
+
+#: 默认基准匹配区域
+DEFAULT_BENCHMARK_REGION = "全国"
 
 #: local-data 包根（Alembic 迁移脚本所在处）
 LOCAL_DATA_DIR = REPO_ROOT / "local-data"
@@ -69,8 +92,12 @@ WORKER_STOP_TIMEOUT_MS = 5000
 
 
 def create_engine_provider() -> EngineProvider:
-    """按 ``WORKBENCH_ENGINE`` 选择引擎提供方；该分支只存在于组合根。"""
-    kind = os.environ.get(ENGINE_ENV, "fake").strip().lower()
+    """按 ``WORKBENCH_ENGINE`` 选择引擎提供方；该分支只存在于组合根。
+
+    B 侧 engine 0.3.0（PR #14）已交付五类公式共 18 个指标，故缺省由
+    ``fake`` 改为 ``local``；仍需冻结结果联调时显式设 ``WORKBENCH_ENGINE=fake``。
+    """
+    kind = os.environ.get(ENGINE_ENV, DEFAULT_ENGINE).strip().lower()
     if kind == "local":
         return LocalEngineProvider()
     return FakeEngineProvider(FAKE_FIXTURE_PATH)
@@ -88,6 +115,22 @@ def create_dataset_provider(
     if kind == "fixture":
         return FixtureDatasetProvider(DEFAULT_INPUT_PATH)
     return SqliteDatasetAdapter(session_factory)
+
+
+def create_benchmark_provider() -> BenchmarkProvider:
+    """按环境变量构造基准数据提供方（Issue #10，仅组合根读取）。
+
+    引擎的 F-BM-001 不读文件、不访问网络，基准记录须由调用方经
+    ``request.parameters["benchmarks"]`` 注入，故在此完成加载。
+
+    文件缺失或内容非法时 ``JsonBenchmarkProvider`` 退化为空参数，
+    引擎发出 ``BENCHMARK_UNAVAILABLE`` 非阻断告警，不阻断分析主流程。
+    """
+    raw_path = os.environ.get(BENCHMARK_PATH_ENV, "").strip()
+    path = Path(raw_path) if raw_path else DEFAULT_BENCHMARK_PATH
+    industry = os.environ.get(BENCHMARK_INDUSTRY_ENV, DEFAULT_BENCHMARK_INDUSTRY).strip()
+    region = os.environ.get(BENCHMARK_REGION_ENV, DEFAULT_BENCHMARK_REGION).strip()
+    return JsonBenchmarkProvider(path, industry=industry, region=region)
 
 
 def _seed_default_warehouse(session_factory: sessionmaker[Session]) -> None:
@@ -182,7 +225,13 @@ def main() -> int:
     session_factory = create_session_factory()
     store = SqlResultStore(session_factory)
     dataset_provider = create_dataset_provider(session_factory)
-    use_case = RunAnalysisUseCase(engine, store, dataset_provider=dataset_provider)
+    benchmark_provider = create_benchmark_provider()
+    use_case = RunAnalysisUseCase(
+        engine,
+        store,
+        dataset_provider=dataset_provider,
+        benchmark_provider=benchmark_provider,
+    )
     import_manager = CsvImportManager(session_factory)
     report_manager = create_report_export_manager(session_factory)
     backup_manager = create_backup_manager(session_factory)
