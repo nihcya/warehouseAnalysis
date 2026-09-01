@@ -1,0 +1,5 @@
+# 契约快照：CI 按**字节**比对导出结果以防漂移（scripts/export_openapi.py）。
+# Windows 下 core.autocrlf=true 会把文件检出为 CRLF，导致
+# services/control-plane/tests/test_openapi_sync.py 比对恒失败。
+# 因此这些文件在仓库与工作区统一使用 LF。
+packages/contracts-schema/*.json text eol=lf
