@@ -8,7 +8,10 @@
   避免重复运行触发 ``analysis_run.run_id`` UNIQUE 冲突；
 - 无事实数据（空库或仅导入主数据，无流水与快照）时返回 ``no_data=True``
   的明确结果：不校验、不计算、不落库、不抛异常（UI 展示提示）；
-- 校验失败（``valid=False``）时返回错误列表并立即结束，绝不调用 analyze。
+- 校验失败（``valid=False``）时返回错误列表并立即结束，绝不调用 analyze；
+- M2（Issue #10）：基准数据经 ``BenchmarkProvider`` 注入到
+  ``request.parameters``（引擎不读文件、不访问网络）；无基准数据时注入空参数，
+  引擎据此发出 ``BENCHMARK_UNAVAILABLE`` 非阻断告警而非崩溃。
 """
 
 from __future__ import annotations
@@ -20,9 +23,11 @@ from pathlib import Path
 
 from contracts import AnalysisRequest, AnalysisResult, EngineDataset, ValidationIssue
 
+from ..domain.benchmark_provider import BenchmarkProvider
 from ..domain.dataset_provider import DatasetProvider
 from ..domain.engine_provider import EngineProvider, ProgressCallback
 from ..domain.result_store import ResultStore
+from ..infrastructure.benchmark.benchmark_loader import NullBenchmarkProvider
 
 #: 仓库根（golden 输入等 fixture 的定位基准）
 REPO_ROOT = Path(__file__).resolve().parents[4]
@@ -84,9 +89,15 @@ class RunAnalysisUseCase:
         store: ResultStore,
         input_path: Path = DEFAULT_INPUT_PATH,
         dataset_provider: DatasetProvider | None = None,
+        benchmark_provider: BenchmarkProvider | None = None,
     ) -> None:
         self._engine = engine
         self._store = store
+        # 基准数据选择逻辑同样只在组合根：未注入时不注入任何 parameters，
+        # 引擎按「无基准」降级（BENCHMARK_UNAVAILABLE），不影响主流程。
+        self._benchmarks: BenchmarkProvider = (
+            benchmark_provider if benchmark_provider is not None else NullBenchmarkProvider()
+        )
         # 数据源选择逻辑只在组合根：注入 dataset provider（本地适配器为 M1
         # 默认）；未注入时回退 M0 的 golden fixture（input_path），测试/演示保留
         self._provider: DatasetProvider = (
@@ -95,11 +106,25 @@ class RunAnalysisUseCase:
             else FixtureDatasetProvider(input_path)
         )
 
+    @property
+    def benchmark_version(self) -> str:
+        """当前注入的基准数据集版本（供 UI 追溯）；未配置时为空串。"""
+        return self._benchmarks.benchmark_version
+
     def run(self, progress: ProgressCallback | None = None) -> AnalysisOutcome:
         """执行一次分析：加载数据 → 校验 → 计算（progress 驱动）→ 保存。"""
         request, dataset = self._provider.load()
-        # 每次运行生成新 run_id（run_id 语义为"一次运行"），保证可重复运行不撞 UNIQUE
-        request = request.model_copy(update={"run_id": f"run-{uuid.uuid4().hex[:12]}"})
+        # 每次运行生成新 run_id（run_id 语义为"一次运行"），保证可重复运行不撞 UNIQUE；
+        # 同时并入基准参数（引擎不读文件/不联网，F-BM-001 依赖调用方注入）
+        request = request.model_copy(
+            update={
+                "run_id": f"run-{uuid.uuid4().hex[:12]}",
+                "parameters": {
+                    **request.parameters,
+                    **self._benchmarks.load_parameters(),
+                },
+            }
+        )
         # 无事实数据：不校验、不计算、不落库，返回明确的"无数据"结果（UI 展示提示）
         if not (dataset.movements or dataset.snapshots):
             return AnalysisOutcome(run_id=request.run_id, no_data=True)

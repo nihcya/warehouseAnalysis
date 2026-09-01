@@ -51,14 +51,27 @@ def test_analysis_page_full_chain_display_and_persistence(
     # 进度条由 progress 回调驱动（FakeEngine 一次完成信号 → 100%）
     assert page.progress_bar.value() == 100
 
-    # 结果表格：一行五列（run_id、engine_version、formula_version、metrics、warnings）
-    assert page.result_table.rowCount() == 1
-    run_id = page.result_table.item(0, 0).text()
+    # 运行信息区（M2：由表格首行改为独立元信息区）
+    run_id = page.meta_run_id.text()
     assert run_id.startswith("run-")
-    assert page.result_table.item(0, 1).text() == "0.1.0-fake"
-    assert page.result_table.item(0, 2).text() == "0.1.0"
-    assert "KPI.OUTBOUND_QTY" in page.result_table.item(0, 3).text()
-    assert "ANALYSIS_PLACEHOLDER" in page.result_table.item(0, 4).text()
+    assert page.meta_engine.text() == "0.1.0-fake"
+    assert page.meta_formula.text() == "0.1.0"
+
+    # 指标明细表（Issue #9）：逐行展示；未知指标名回退英文原名
+    assert page.metrics_table.rowCount() > 0
+    metric_names = [
+        page.metrics_table.item(row, 0).text()
+        for row in range(page.metrics_table.rowCount())
+    ]
+    assert "KPI.OUTBOUND_QTY" in metric_names
+
+    # 告警表（Issue #11）：独立成表，不再挤在一个单元格
+    assert page.warnings_table.rowCount() > 0
+    warning_codes = [
+        page.warnings_table.item(row, 1).text()
+        for row in range(page.warnings_table.rowCount())
+    ]
+    assert "ANALYSIS_PLACEHOLDER" in warning_codes
 
     # 持久化：按 run_id 读取与展示一致
     stored = store.get(run_id)
@@ -67,13 +80,13 @@ def test_analysis_page_full_chain_display_and_persistence(
     assert stored.engine_version == "0.1.0-fake"
     assert [run["run_id"] for run in store.list_runs()] == [run_id]
 
-    # 清空表格后按 run_id 重新查看：内容恢复一致
-    page.result_table.setRowCount(0)
+    # 清空结果区后按 run_id 重新查看：内容恢复一致
+    page.metrics_table.setRowCount(0)
     assert page.run_id_input.text() == run_id
     page.view_button.click()
-    assert page.result_table.rowCount() == 1
-    assert page.result_table.item(0, 0).text() == run_id
-    assert page.result_table.item(0, 1).text() == "0.1.0-fake"
+    assert page.metrics_table.rowCount() > 0
+    assert page.meta_run_id.text() == run_id
+    assert page.meta_engine.text() == "0.1.0-fake"
 
 
 def test_analysis_page_validation_failure_shows_issues(
@@ -89,7 +102,8 @@ def test_analysis_page_validation_failure_shows_issues(
 
     page.run_button.click()
 
-    assert page.result_table.rowCount() == 0
+    assert page.metrics_table.rowCount() == 0
+    assert page.warnings_table.rowCount() == 0
     assert page.progress_bar.value() == 0  # 未进入计算阶段
     assert page.issue_list.count() == 1
     assert "DUPLICATE_EVENT" in page.issue_list.item(0).text()
@@ -110,6 +124,7 @@ def test_analysis_page_view_missing_run_id(
     page.run_id_input.setText("run-not-exist")
     page.view_button.click()
 
-    assert page.result_table.rowCount() == 0
+    assert page.metrics_table.rowCount() == 0
+    assert page.warnings_table.rowCount() == 0
     assert page.issue_list.count() == 1
     assert "run-not-exist" in page.issue_list.item(0).text()
