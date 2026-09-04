@@ -123,7 +123,7 @@ def test_backup_creates_verified_record(
     assert result.file_path.exists()
     assert result.file_path.parent == backup_dir
     assert result.sha256 == _sha256_file(result.file_path)
-    assert result.db_schema_version == "local-0006"
+    assert result.db_schema_version == "local-0007"
     assert result.row_counts.get("analysis_run") == 1
 
     record = service.get_backup(result.backup_id)

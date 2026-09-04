@@ -7,6 +7,7 @@
 - ``update_account_context``：GET /account/me 响应（AccountMeData）；
 - ``update_snapshot``：SSE 快照 / 轮询快照（SnapshotData）；
 - ``update_channel``：StatusStreamWorker 的 channel_changed 信号；
+- ``update_sync_pending``：SyncWorker 的 sync_progress 信号（待同步事件数）；
 - ``set_offline``：控制平面不可达时由主窗口调用。
 """
 
@@ -92,6 +93,10 @@ class StatusCard(QWidget):
         self._last_seen_label = QLabel("最后连接：—")
         layout.addWidget(self._last_seen_label)
 
+        # 待同步事件数（M3 Task 5：SyncWorker.sync_progress 驱动）
+        self._sync_pending_label = QLabel("待同步：0")
+        layout.addWidget(self._sync_pending_label)
+
         outer = QVBoxLayout(self)
         outer.addWidget(group)
         outer.addStretch(1)
@@ -150,6 +155,10 @@ class StatusCard(QWidget):
         self._connection_label.setText("连接状态：离线")
         self._connection_label.setStyleSheet(f"color: {_OFFLINE_COLOR};")
         self._channel_label.setText("通道：离线")
+
+    def update_sync_pending(self, pending: int) -> None:
+        """更新待同步事件数（SyncWorker.sync_progress 信号驱动）。"""
+        self._sync_pending_label.setText(f"待同步：{pending}")
 
     # ------------------------------------------------------------------
     # 内部辅助

@@ -2,7 +2,7 @@
 
 - 表结构对齐主基线 §35.4；DDL 一律由 Alembic 迁移创建
   （0001_meta、0002_analysis_m0、0003_master_data、0004_inventory_events、
-  0005_import、0006_report_backup）。
+  0005_import、0006_report_backup、0007_sync_config）。
 - 时间字段统一存 UTC ISO 8601 文本；日期字段存 YYYY-MM-DD 文本。
 - 金额/数量不使用 float 真值：M0 约定模型层用 TEXT 存 Decimal 序列化字符串
   （AnalysisResult 的 JSON 序列化中金额已是字符串，见 contracts.analysis 序列化约定）。
@@ -694,3 +694,60 @@ class BackupRecordRow(Base):
     updated_at: Mapped[str] = mapped_column(
         Text, nullable=False, default=utc_now_iso, onupdate=utc_now_iso
     )
+
+
+# ---------------------------------------------------------------------------
+# 小程序事件同步组（0007_sync_config，M3 Task 4）
+# ---------------------------------------------------------------------------
+
+#: sync_outbox.status 枚举（迁移 CHECK 同步约束）：
+#: PENDING（落库成功、云端 ACK 未确认）→ ACKED（云端已确认）。
+SYNC_ACK_STATUS_PENDING = "PENDING"
+SYNC_ACK_STATUS_ACKED = "ACKED"
+SYNC_ACK_STATUSES: tuple[str, ...] = (
+    SYNC_ACK_STATUS_PENDING,
+    SYNC_ACK_STATUS_ACKED,
+)
+
+#: sync_inbox.error_code 取值（解密/校验/落库失败分类）
+SYNC_ERROR_DECRYPT_FAILED = "DECRYPT_FAILED"
+SYNC_ERROR_APPLY_FAILED = "APPLY_FAILED"
+
+
+class SyncInboxRow(Base):
+    """同步收件箱（sync_inbox）：云端下拉信封的落地记录，event_id 主键幂等。
+
+    - envelope_ciphertext 原样保留密文：解密失败（DECRYPT_FAILED）不丢数据，
+      换钥或修复后可重放；apply_error / error_code 记录失败原因；
+    - applied_at 为空即未成功落库（applied）。
+    """
+
+    __tablename__ = "sync_inbox"
+
+    event_id: Mapped[str] = mapped_column(Text, primary_key=True)
+    envelope_ciphertext: Mapped[str] = mapped_column(Text, nullable=False)
+    source: Mapped[str] = mapped_column(Text, nullable=False)
+    received_at: Mapped[str] = mapped_column(Text, nullable=False, default=utc_now_iso)
+    applied_at: Mapped[str | None] = mapped_column(Text)  # UTC ISO 8601
+    apply_error: Mapped[str | None] = mapped_column(Text)
+    error_code: Mapped[str | None] = mapped_column(Text)
+
+
+class SyncOutboxRow(Base):
+    """同步发件箱（sync_outbox）：云端 ACK 待确认队列，ack_id（= 云端 envelope_id）主键。
+
+    落库成功先记 PENDING，云端 ACK 成功后置 ACKED；ACK 失败不回滚落库，
+    下轮循环重发 PENDING 的 ACK（云端 ACK 幂等）。
+    """
+
+    __tablename__ = "sync_outbox"
+    __table_args__ = (
+        Index("ix_sync_outbox_status", "status"),
+    )
+
+    ack_id: Mapped[str] = mapped_column(Text, primary_key=True)
+    event_id: Mapped[str] = mapped_column(
+        Text, ForeignKey("sync_inbox.event_id"), nullable=False
+    )
+    acked_at: Mapped[str] = mapped_column(Text, nullable=False, default=utc_now_iso)
+    status: Mapped[str] = mapped_column(Text, nullable=False)

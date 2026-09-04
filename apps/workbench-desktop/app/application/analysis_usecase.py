@@ -17,6 +17,7 @@
 from __future__ import annotations
 
 import json
+import sys
 import uuid
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -29,8 +30,13 @@ from ..domain.engine_provider import EngineProvider, ProgressCallback
 from ..domain.result_store import ResultStore
 from ..infrastructure.benchmark.benchmark_loader import NullBenchmarkProvider
 
-#: 仓库根（golden 输入等 fixture 的定位基准）
-REPO_ROOT = Path(__file__).resolve().parents[4]
+#: 仓库根（golden 输入等 fixture 的定位基准）：
+#: 源码运行 = ``apps/workbench-desktop/app/application`` 的上四级；PyInstaller
+#: ``--onedir`` 冻结后 = ``_internal``（workbench.spec 已收集 tests/fixtures）
+if getattr(sys, "frozen", False):
+    REPO_ROOT = Path(getattr(sys, "_MEIPASS", Path(sys.executable).parent / "_internal"))
+else:
+    REPO_ROOT = Path(__file__).resolve().parents[4]
 
 #: M0 默认输入：golden 输入（M1 起仅作 fixture 数据源，本地库为默认数据源）
 DEFAULT_INPUT_PATH = REPO_ROOT / "tests" / "fixtures" / "golden" / "v0.1.0" / "input.json"

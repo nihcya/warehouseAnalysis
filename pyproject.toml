@@ -36,6 +36,8 @@ dev = [
     "jsonschema>=4.26.0",
     "pytest-qt>=4.4",
     "httpx>=0.27",
+    # 发布打包（M3 Task 6）：构建 apps/workbench-desktop/workbench.spec
+    "pyinstaller>=6.10",
 ]
 
 [tool.pytest.ini_options]

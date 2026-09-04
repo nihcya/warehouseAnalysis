@@ -1,4 +1,4 @@
-"""api/v1 契约测试：M2 实装端点（认证/账号/设备）+ M3 维持 stub 的端点。
+"""api/v1 契约测试：M2 实装端点（认证/账号/设备）+ 维持 stub 的开发者端点。
 
 覆盖：
 - 登录成功/失败、令牌刷新轮换与重放撤销、注销后访问受保护端点 401；
@@ -6,6 +6,8 @@
   开发者接口 403；
 - 统一错误响应格式、请求校验错误与未捕获异常的兜底行为。
 
+M3 已实装心跳/配置/任务/同步端点（契约测试见 test_m3_endpoints.py），
+本文件仅剩 ``/telemetry``、``/merchants`` 两个开发者 stub。
 M0 的 dev token（``Bearer merchant``）已随 M2 下线：测试通过内存仓储种子账号
 （merchant_demo / developer_demo）走真实登录换取令牌。
 """
@@ -28,16 +30,10 @@ from fastapi.testclient import TestClient
 #: 演示账号固定密码（经 DEMO_PASSWORD_ENV 注入内存种子，不写死在服务代码里）
 DEMO_PASSWORD = "unit-test-demo-pass"
 
-#: M3 维持 stub 的端点：(method, path, 访问所需 scope)
+#: 维持 stub 的端点（随开发者端页面交付）：(method, path, 访问所需 scope)
 STUB_ENDPOINTS: list[tuple[str, str, str]] = [
-    ("GET", "/api/v1/config", "merchant"),
-    ("GET", "/api/v1/tasks", "merchant"),
-    ("POST", "/api/v1/tasks/pull", "merchant"),
-    ("GET", "/api/v1/sync/events/pull", "merchant"),
-    ("POST", "/api/v1/sync/ack", "merchant"),
     ("GET", "/api/v1/telemetry", "developer"),
     ("GET", "/api/v1/merchants", "developer"),
-    ("POST", "/api/v1/heartbeat", "merchant"),
 ]
 
 

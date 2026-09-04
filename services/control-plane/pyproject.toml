@@ -14,6 +14,8 @@ dependencies = [
     # M2 认证：密码哈希（SECURITY.md 冻结 Argon2id）与 Access Token（JWT）
     "argon2-cffi>=23.1",
     "pyjwt>=2.10",
+    # M3 同步信封：Fernet 对称加密（云端加密、工作台解密，密钥经环境变量注入）
+    "cryptography>=43.0",
 ]
 
 # 服务型成员：不构建为可分发包，仅解析依赖（按主基线 §20.3 以 uvicorn 运行）

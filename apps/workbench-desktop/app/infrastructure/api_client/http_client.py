@@ -6,7 +6,8 @@
 - 认证：login / refresh / logout（令牌自动持久化到 ``TokenStore``）；
 - 账号：account/me（401 时自动刷新令牌重试一次）；
 - 设备：register / list；
-- 状态流：snapshot（轮询降级入口）+ stream_url（SSE 流地址，供后台线程使用）。
+- 状态流：snapshot（轮询降级入口）+ stream_url（SSE 流地址，供后台线程使用）；
+- M3 Agent：heartbeat / config / tasks pull（心跳上报、配置验签拉取、任务拉取）。
 
 网络异常时设置 ``online=False``，方法返回 None（不抛异常），
 保证 UI 状态栏只看到"离线"而不被未捕获异常打断。
@@ -89,6 +90,7 @@ class HttpApiClient:
         path: str,
         *,
         json: dict[str, Any] | None = None,
+        params: dict[str, Any] | None = None,
         auth: bool = True,
         _retried: bool = False,
     ) -> httpx.Response | None:
@@ -100,7 +102,7 @@ class HttpApiClient:
                 headers["Authorization"] = f"Bearer {bundle.access_token}"
 
         try:
-            resp = self._client.request(method, path, headers=headers, json=json)
+            resp = self._client.request(method, path, headers=headers, json=json, params=params)
         except httpx.HTTPError:
             self._online = False
             return None
@@ -210,6 +212,103 @@ class HttpApiClient:
     def stream_url(self) -> str:
         """返回 SSE 流 URL（供后台线程使用）。"""
         return f"{self._base_url}/api/v1/events/stream"
+
+    # ------------------------------------------------------------------
+    # M3 Agent：心跳 / 配置 / 任务
+    # ------------------------------------------------------------------
+
+    def send_heartbeat(
+        self,
+        device_id: str,
+        status: str,
+        app_version: str | None = None,
+        engine_version: str | None = None,
+        db_schema_version: str | None = None,
+        pending_sync_count: int = 0,
+    ) -> dict[str, Any] | None:
+        """POST /api/v1/heartbeat：设备心跳上报，返回 HeartbeatData。"""
+        resp = self._request(
+            "POST",
+            "/api/v1/heartbeat",
+            json={
+                "device_id": device_id,
+                "status": status,
+                "app_version": app_version,
+                "engine_version": engine_version,
+                "db_schema_version": db_schema_version,
+                "pending_sync_count": pending_sync_count,
+            },
+        )
+        if resp is None or resp.status_code != 200:
+            return None
+        return resp.json()["data"]
+
+    def get_config(self) -> dict[str, Any] | None:
+        """GET /api/v1/config：返回 ConfigData（无已发布配置时为 None）。"""
+        resp = self._request("GET", "/api/v1/config")
+        if resp is None or resp.status_code != 200:
+            return None
+        return resp.json()["data"]
+
+    def list_tasks(self) -> list[dict[str, Any]] | None:
+        """GET /api/v1/tasks：返回任务定义列表（含禁用的）。"""
+        resp = self._request("GET", "/api/v1/tasks")
+        if resp is None or resp.status_code != 200:
+            return None
+        return resp.json()["data"]
+
+    def pull_tasks(
+        self,
+        device_id: str,
+        limit: int = 10,
+    ) -> list[dict[str, Any]] | None:
+        """POST /api/v1/tasks/pull：拉取待执行任务（CREATED → QUEUED 锁定）。"""
+        resp = self._request(
+            "POST",
+            "/api/v1/tasks/pull",
+            json={"device_id": device_id, "limit": limit},
+        )
+        if resp is None or resp.status_code != 200:
+            return None
+        return resp.json()["data"]
+
+    # ------------------------------------------------------------------
+    # M3 同步：小程序事件信封
+    # ------------------------------------------------------------------
+
+    def pull_sync_events(
+        self,
+        device_id: str,
+        limit: int = 50,
+    ) -> list[dict[str, Any]] | None:
+        """GET /api/v1/sync/events/pull：拉取发往本设备的加密同步信封列表。
+
+        返回 SyncEnvelopeData 字典列表（含 envelope_id / event_id / ciphertext）；
+        网络异常或非 200 返回 None。
+        """
+        resp = self._request(
+            "GET",
+            "/api/v1/sync/events/pull",
+            params={"device_id": device_id, "limit": limit},
+        )
+        if resp is None or resp.status_code != 200:
+            return None
+        return resp.json()["data"]
+
+    def ack_sync_events(self, envelope_id: str) -> dict[str, Any] | None:
+        """POST /api/v1/sync/ack：确认信封已落库（云端幂等，重复确认 already_acked）。
+
+        返回 SyncAckData（含 envelope_id / already_acked）；网络异常或非 200
+        返回 None，由调用方下轮重试。
+        """
+        resp = self._request(
+            "POST",
+            "/api/v1/sync/ack",
+            json={"envelope_id": envelope_id},
+        )
+        if resp is None or resp.status_code != 200:
+            return None
+        return resp.json()["data"]
 
     # ------------------------------------------------------------------
     # 健康检查
