@@ -3,7 +3,7 @@
 一套帮助中小仓库管理者、商家和采购负责人的**本地优先**库存品类分析决策工具：把 Excel/CSV 流水导入本地工作台，统一清洗校验后输出动销、周转、库龄、ABC、呆滞、补货与预测等结构化指标，辅助采购决策。
 
 - **产品形态**：Windows 本地工作台（PySide6）+ 商户 Web 管理端 + 开发者管理模式 + 微信小程序预留接口
-- **当前状态**：M0 契约冻结期 —— 开发者 B 的引擎基线已交付（contracts 1.0 / engine 0.1.0 / formula 0.1.0-draft），47 个测试全绿
+- **当前状态**：M3 已交付（PR #21）—— 托盘 Agent、小程序事件同步链路、控制平面配置/任务/心跳/同步端点、升级安全与打包发布脚本全部落地；引擎 engine 0.3.0 五类公式 18 个指标，工作台默认接真实引擎
 - **核心原则**：云端统一管理产品能力和运行状态，本地保存并处理商户业务数据；先确保数据正确、可追溯、可恢复，再逐步增加 AI 和移动端能力
 
 ---
@@ -50,7 +50,7 @@ flowchart TB
     CLOUD <-->|"HTTPS + SSE + 临时加密中继（只传控制数据与技术日志）"| LOCAL
     UI -->|"EngineDataset 标准化数据集"| ENG
     ENG -->|"AnalysisResult 结构化结果"| UI
-    FAKE -.->|"M0 期间替代真实引擎"| UI
+    FAKE -.->|"WORKBENCH_ENGINE=fake 时替代真实引擎"| UI
     CONTRACTS --- ENG
     CONTRACTS --- API
 ```
@@ -59,7 +59,7 @@ flowchart TB
 
 - **数据边界**：`inventory_event` 是库存事实来源，余额是可重建投影；错误不直接覆盖库存，用冲销或调整事件。云端不建商户 `sku`/`movement`/`unit_cost` 表。
 - **契约边界**：跨模块数据必须经过 contracts 模型和版本检查；引擎不连接数据库、不读用户文件、不访问网络。
-- **替换机制**：工作台通过 `WarehouseEngine` Protocol 调用引擎，M0 期间用 FakeEngine 跑通 UI，B 的真实 wheel 就绪后无缝替换，历史结果可重开。
+- **替换机制**：工作台通过 `WarehouseEngine` Protocol 调用引擎，环境变量 `WORKBENCH_ENGINE=fake|local` 只在组合根读取；**默认走真实引擎**（engine 0.3.0，PR #14 交付），仍需冻结结果联调时显式设 `WORKBENCH_ENGINE=fake`。
 
 ### 2. Skill 集群架构及工作流、逻辑链
 
@@ -131,16 +131,19 @@ warehouseAnalysis/
 │           ├── engine.py           #   WarehouseEngine：validate_dataset / analyze / list_capabilities
 │           ├── fake.py             #   FakeEngine：fixture 驱动，供 A 的工作台联调
 │           ├── validation/         #   输入校验：字段、精度、重复事件、期间、负库存
-│           ├── calculators/        #   五个计算器（M0 存根，公式口径见 docs/formula-spec.md）
+│           ├── calculators/        #   五个计算器（KPI/ABC库龄/预测/补货/基准，公式口径见 docs/formula-spec.md）
 │           ├── errors.py           #   错误码 → 异常映射
 │           └── result.py           #   结构化结果与输入摘要（dataset digest）
 ├── skills/                         # 开发者 B：五个 SKILL.md + manifest.json（版本/兼容矩阵/降级策略）
 ├── tests/
 │   ├── contract/                   # 契约正反例、Schema 一致性、fixture 过 Schema 校验
 │   ├── engine/                     # 引擎接口、黄金数据、边界数据、Hypothesis 库存守恒
-│   └── fixtures/                   # golden/v0.1.0 黄金数据 + edge/ 七类边界样例 + fake-analysis.json
+│   └── fixtures/                   # golden v0.1.0~v0.4.0 黄金数据 + edge/ 八类边界样例 + benchmarks/ 行业基准
 ├── docs/                           # 项目文档（见下节）
-├── scripts/                        # export_schemas.py、perf_bench.py、verify_schema.py
+├── scripts/                        # export_schemas.py、perf_bench.py、verify_schema.py、
+│                                   #   verify_backup_restore.py、export_openapi.py、
+│                                   #   build_release.py（M3 打包发布）、e2e_m3_flow.py（M3 端到端演练）
+│                                   #   installer/warehouse-workbench.iss（Inno Setup 安装包脚本）
 ├── .github/workflows/              # engine-ci.yml（B 侧）、platform-ci.yml（A 侧）
 ├── pyproject.toml / uv.lock        # uv workspace 根配置与锁文件（CPython 3.11）
 ├── package.json / pnpm-lock.yaml   # pnpm workspace 根配置（Node.js 22 LTS）
@@ -158,9 +161,15 @@ warehouseAnalysis/
 | [开发需求-A平台工作台.md](docs/开发需求-A平台工作台.md) | 角色执行文档 | 开发者 A 的执行需求与验收清单：官网/Web/API/工作台/数据库/同步/发布 |
 | [开发需求-B引擎Skill.md](docs/开发需求-B引擎Skill.md) | 角色执行文档 | 开发者 B 的执行需求与验收清单：标准化、引擎、Skill、黄金数据、性能评测与发布门槛 |
 | [项目开发文档评审报告.md](docs/项目开发文档评审报告.md) | 质量门禁 | 依据生命周期规范对开发文档的评审：有条件通过进入 M0，P0/P1 修订清单与 G0-G7 Gate 判断 |
-| [formula-spec.md](docs/formula-spec.md) | B 侧交付 | 公式口径冻结文档 0.1.0-draft：KPI/COGS/ABC/库龄/呆滞/补货/预测七类口径、F-* 公式编号、容差总表 |
+| [formula-spec.md](docs/formula-spec.md) | B 侧交付 | 公式口径冻结文档：KPI/COGS/ABC/库龄/呆滞/补货/预测七类口径、F-* 公式编号、容差总表（M0 双签冻结） |
 | [compatibility-matrix.md](docs/compatibility-matrix.md) | B 侧交付 | 组件兼容矩阵初版：Desktop/API/Engine/Skill/contracts/DB 版本规则与当前状态 |
 | [m0-handover-b.md](docs/m0-handover-b.md) | B 侧交付 | M0 交接说明：安装命令、公开入口、依赖版本、合并门槛验证记录、P0 自查与 M1 缺口清单 |
+| [m1-handover-a.md](docs/m1-handover-a.md) | A 侧交付 | M1 交接说明：本地业务闭环（导入/分析/报告/备份）、数据库迁移与联调证据 |
+| [m1-handover-b.md](docs/m1-handover-b.md) | B 侧交付 | M1 交接说明：KPI 引擎 0.2.0、黄金数值层扩展、首个 wheel 交付与性能基线 |
+| [m2-handover-b.md](docs/m2-handover-b.md) | B 侧交付 | M2 交接说明：engine 0.3.0 五类公式 18 指标、Skill 全实装、实验模型隔离与 M3 建议 |
+| [PRD.md](docs/PRD.md) / [DATABASE.md](docs/DATABASE.md) / [API.md](docs/API.md) | A 侧交付 | M2 技术文档：产品需求 / 数据库设计（ER 图与数据字典）/ 控制平面 API 参考 |
+| [er-diagram.md](docs/er-diagram.md) / [data-dictionary.md](docs/data-dictionary.md) | A 侧交付 | 数据库配套：实体关系图与字段级数据字典 |
+| [release-checklist.md](docs/release-checklist.md) | M3 交付 | 发布前检查清单：打包、安装、升级、回滚、断网恢复等验收项 |
 | [仓库项目详情介绍.html](docs/仓库项目详情介绍.html) | 面向外部 | HTML 版项目介绍页 |
 
 **文档关系**：
@@ -175,7 +184,9 @@ flowchart TB
     OVERVIEW["项目概述.md / 仓库项目详情介绍.html<br/>面向外部的独立介绍"]
     FORMULA["formula-spec.md<br/>公式口径冻结（B 产出）"]
     MATRIX["compatibility-matrix.md<br/>组件兼容矩阵（B 维护）"]
-    HANDOVER["m0-handover-b.md<br/>M0 交接与验收记录"]
+    HANDOVER["m0/m1/m2-handover-*.md<br/>各里程碑交接与验收记录"]
+    TECHDOCS["PRD / DATABASE / API / er-diagram / data-dictionary<br/>M2 技术文档（A 产出）"]
+    RELEASE["release-checklist.md<br/>M3 发布检查清单"]
 
     PRD -->|"评审 + 架构升级"| BASE
     BASE -->|"评审对象"| REVIEW
@@ -188,6 +199,8 @@ flowchart TB
     B -->|"M0 交付物 3：交接验收"| HANDOVER
     FORMULA -->|"公式 ID 引用"| MATRIX
     HANDOVER -->|"记录 P0-2/P0-3 完成证据"| REVIEW
+    BASE -.->|"M2 落地产出"| TECHDOCS
+    BASE -.->|"M3 发布验收"| RELEASE
 
     style BASE fill:#e8f0fe,stroke:#1a56db
     style REVIEW fill:#fff4e5,stroke:#d97706
@@ -208,7 +221,7 @@ docker compose -f docker-compose.dev.yml up -d postgres   # 本地 PostgreSQL
 # 启动云端 API / Web / 工作台
 cd services/control-plane; uv run uvicorn app.main:app --reload --port 8000   # 完成后 cd 回仓库根
 pnpm --filter web dev
-cd apps/workbench-desktop; uv run python -m app    # WORKBENCH_ENGINE=fake（默认）；完成后 cd 回仓库根
+cd apps/workbench-desktop; uv run python -m app.main   # 默认真实引擎；WORKBENCH_ENGINE=fake 切换联调；完成后 cd 回仓库根
 
 # 全量检查
 uv run pytest
@@ -218,4 +231,4 @@ pnpm typecheck
 uv run python scripts/export_schemas.py                    # 重新导出 JSON Schema
 ```
 
-详细交接信息见 [docs/m0-handover-b.md](docs/m0-handover-b.md)（B 侧）与 [docs/m0-handover-a.md](docs/m0-handover-a.md)（A 侧）。
+详细交接信息见 [docs/m0-handover-b.md](docs/m0-handover-b.md)（B 侧 M0）及 m1/m2-handover-\* 系列（按里程碑），M3 发布验收见 [docs/release-checklist.md](docs/release-checklist.md)。
