@@ -1,6 +1,6 @@
-"""PostgreSQL 仓储实现（M2，生产路径）。
+"""PostgreSQL 仓储实现（M2 + M3，生产路径）。
 
-- 实现 ``app.application.ports`` 的四个仓储协议；语义与内存实现一致，
+- 实现 ``app.application.ports`` 的八个仓储协议；语义与内存实现一致，
   差异只在事务与锁（每个方法一个短事务，写操作由数据库约束兜底）；
 - 行 → domain 的转换集中在本文件的 ``_xxx_from_row``：
   未知枚举直接抛错，不静默降级（主基线 §35.5）；
@@ -16,26 +16,36 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from typing import Any, cast
 
-from sqlalchemy import func, select, update
+from sqlalchemy import delete, func, or_, select, update
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.engine import CursorResult
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.domain.account import Account, AccountRole, AccountStatus
 from app.domain.audit import AuditAction, AuditEntry, AuditResult
 from app.domain.catalog import FeatureGrant, ProductProfile, ProductProfileStatus
+from app.domain.config import ConfigStatus, ConfigVersion
 from app.domain.device import Device, DeviceStatus, DeviceType
+from app.domain.heartbeat import Heartbeat
 from app.domain.license import License, LicenseStatus
 from app.domain.session import ClientType
 from app.domain.session import Session as DomainSession
+from app.domain.sync import SyncEnvelope, SyncEnvelopeStatus
+from app.domain.task import RunStatus, Task, TaskRun
 from app.domain.tenant import Tenant, TenantStatus
 from app.infrastructure.db.models import (
     AccountRow,
     AuditLogRow,
+    ConfigVersionRow,
     DeviceRow,
     FeatureGrantRow,
+    HeartbeatRow,
     LicenseRow,
     ProductProfileRow,
     SessionRow,
+    SyncEnvelopeRow,
+    TaskRow,
+    TaskRunRow,
     TenantRow,
 )
 
@@ -144,6 +154,79 @@ def _audit_from_row(row: AuditLogRow) -> AuditEntry:
         target_id=row.target_id,
         request_id=row.request_id,
         detail=dict(row.detail_json or {}),
+    )
+
+
+def _config_from_row(row: ConfigVersionRow) -> ConfigVersion:
+    return ConfigVersion(
+        config_version_id=row.config_version_id,
+        tenant_id=row.tenant_id,
+        version=row.version,
+        content=dict(row.content_json or {}),
+        sha256=row.sha256,
+        signature=row.signature,
+        schema_version=row.schema_version,
+        status=ConfigStatus(row.status),
+        published_by=row.published_by,
+        effective_at=row.effective_at,
+        created_at=row.created_at,
+    )
+
+
+def _task_from_row(row: TaskRow) -> Task:
+    return Task(
+        task_id=row.task_id,
+        tenant_id=row.tenant_id,
+        task_type=row.task_type,
+        cron_expr=row.cron_expr,
+        scope=dict(row.scope_json or {}),
+        enabled=row.enabled,
+        created_by=row.created_by,
+        created_at=row.created_at,
+    )
+
+
+def _run_from_row(row: TaskRunRow) -> TaskRun:
+    return TaskRun(
+        run_id=row.run_id,
+        task_id=row.task_id,
+        tenant_id=row.tenant_id,
+        status=RunStatus(row.status),
+        device_id=row.device_id,
+        scheduled_at=row.scheduled_at,
+        started_at=row.started_at,
+        finished_at=row.finished_at,
+        error_code=row.error_code,
+        created_at=row.created_at,
+        updated_at=row.updated_at,
+    )
+
+
+def _heartbeat_from_row(row: HeartbeatRow) -> Heartbeat:
+    return Heartbeat(
+        device_id=row.device_id,
+        tenant_id=row.tenant_id,
+        sent_at=row.sent_at,
+        status=row.status,
+        app_version=row.app_version,
+        engine_version=row.engine_version,
+        db_schema_version=row.db_schema_version,
+        pending_sync_count=row.pending_sync_count,
+    )
+
+
+def _envelope_from_row(row: SyncEnvelopeRow) -> SyncEnvelope:
+    return SyncEnvelope(
+        envelope_id=row.envelope_id,
+        tenant_id=row.tenant_id,
+        target_device_id=row.target_device_id,
+        event_id=row.event_id,
+        ciphertext=row.ciphertext,
+        idempotency_key=row.idempotency_key,
+        status=SyncEnvelopeStatus(row.status),
+        expires_at=row.expires_at,
+        created_at=row.created_at,
+        acked_at=row.acked_at,
     )
 
 
@@ -502,3 +585,282 @@ class PostgresAuditRepository:
                 .limit(limit)
             ).scalars()
             return [_audit_from_row(row) for row in rows]
+
+
+class PostgresConfigRepository:
+    """config_version 仓储（PostgreSQL，M3）。"""
+
+    def __init__(self, session_factory: sessionmaker[Session]) -> None:
+        self._session_factory = session_factory
+
+    def get_effective_config(self, tenant_id: str) -> ConfigVersion | None:
+        with self._session_factory() as session:
+            row = session.execute(
+                select(ConfigVersionRow)
+                .where(
+                    ConfigVersionRow.tenant_id == tenant_id,
+                    ConfigVersionRow.status == ConfigStatus.PUBLISHED.value,
+                )
+                .order_by(
+                    ConfigVersionRow.effective_at.desc().nullslast(),
+                    ConfigVersionRow.created_at.desc(),
+                )
+                .limit(1)
+            ).scalar_one_or_none()
+            return _config_from_row(row) if row is not None else None
+
+    def add_config(self, config: ConfigVersion) -> None:
+        with self._session_factory() as session, session.begin():
+            session.add(
+                ConfigVersionRow(
+                    config_version_id=config.config_version_id,
+                    tenant_id=config.tenant_id,
+                    version=config.version,
+                    content_json=dict(config.content),
+                    sha256=config.sha256,
+                    signature=config.signature,
+                    schema_version=config.schema_version,
+                    status=config.status.value,
+                    published_by=config.published_by,
+                    effective_at=config.effective_at,
+                    created_at=config.created_at or utc_now(),
+                )
+            )
+
+
+class PostgresTaskRepository:
+    """task / task_run 仓储（PostgreSQL，M3）。"""
+
+    def __init__(self, session_factory: sessionmaker[Session]) -> None:
+        self._session_factory = session_factory
+
+    def get_task(self, task_id: str) -> Task | None:
+        with self._session_factory() as session:
+            row = session.get(TaskRow, task_id)
+            return _task_from_row(row) if row is not None else None
+
+    def list_tasks(self, tenant_id: str) -> list[Task]:
+        with self._session_factory() as session:
+            rows = session.execute(
+                select(TaskRow)
+                .where(TaskRow.tenant_id == tenant_id)
+                .order_by(TaskRow.created_at, TaskRow.task_id)
+            ).scalars()
+            return [_task_from_row(row) for row in rows]
+
+    def add_task(self, task: Task) -> None:
+        with self._session_factory() as session, session.begin():
+            session.add(
+                TaskRow(
+                    task_id=task.task_id,
+                    tenant_id=task.tenant_id,
+                    task_type=task.task_type,
+                    cron_expr=task.cron_expr,
+                    scope_json=dict(task.scope),
+                    enabled=task.enabled,
+                    created_by=task.created_by,
+                    created_at=task.created_at or utc_now(),
+                )
+            )
+
+    def add_run(self, run: TaskRun) -> None:
+        now = utc_now()
+        with self._session_factory() as session, session.begin():
+            session.add(
+                TaskRunRow(
+                    run_id=run.run_id,
+                    task_id=run.task_id,
+                    tenant_id=run.tenant_id,
+                    device_id=run.device_id,
+                    status=run.status.value,
+                    scheduled_at=run.scheduled_at,
+                    started_at=run.started_at,
+                    finished_at=run.finished_at,
+                    error_code=run.error_code,
+                    created_at=run.created_at or now,
+                    updated_at=run.updated_at or now,
+                )
+            )
+
+    def save_run(self, run: TaskRun) -> None:
+        with self._session_factory() as session, session.begin():
+            session.execute(
+                update(TaskRunRow)
+                .where(TaskRunRow.run_id == run.run_id)
+                .values(
+                    status=run.status.value,
+                    device_id=run.device_id,
+                    started_at=run.started_at,
+                    finished_at=run.finished_at,
+                    error_code=run.error_code,
+                    updated_at=utc_now(),
+                )
+            )
+
+    def pull_runs_for_device(
+        self, *, tenant_id: str, device_id: str, limit: int, now: datetime
+    ) -> list[TaskRun]:
+        """单事务内锁定：候选 CRETED 运行 UPDATE 为 QUEUED（已分发）。
+
+        UPDATE 复带 ``status = CREATED`` 条件，即使候选集在 SELECT 与 UPDATE
+        之间被并发修改，也不会重复分发；返回顺序与候选集一致（scheduled_at 升序）。
+        """
+        with self._session_factory() as session, session.begin():
+            candidate_ids = list(
+                session.execute(
+                    select(TaskRunRow.run_id)
+                    .where(
+                        TaskRunRow.tenant_id == tenant_id,
+                        TaskRunRow.status == RunStatus.CREATED.value,
+                        or_(
+                            TaskRunRow.device_id.is_(None),
+                            TaskRunRow.device_id == device_id,
+                        ),
+                    )
+                    .order_by(
+                        TaskRunRow.scheduled_at.asc().nullslast(),
+                        TaskRunRow.created_at.asc(),
+                    )
+                    .limit(limit)
+                ).scalars()
+            )
+            if not candidate_ids:
+                return []
+            rows = (
+                session.execute(
+                    update(TaskRunRow)
+                    .where(
+                        TaskRunRow.run_id.in_(candidate_ids),
+                        TaskRunRow.status == RunStatus.CREATED.value,
+                    )
+                    .values(
+                        status=RunStatus.QUEUED.value,
+                        device_id=device_id,
+                        updated_at=now,
+                    )
+                    .returning(TaskRunRow)
+                )
+                .scalars()
+                .all()
+            )
+        by_id = {row.run_id: _run_from_row(row) for row in rows}
+        return [by_id[run_id] for run_id in candidate_ids if run_id in by_id]
+
+
+class PostgresHeartbeatRepository:
+    """heartbeat 仓储（PostgreSQL，M3，device_id 主键 upsert）。"""
+
+    def __init__(self, session_factory: sessionmaker[Session]) -> None:
+        self._session_factory = session_factory
+
+    def get(self, device_id: str) -> Heartbeat | None:
+        with self._session_factory() as session:
+            row = session.get(HeartbeatRow, device_id)
+            return _heartbeat_from_row(row) if row is not None else None
+
+    def upsert(self, heartbeat: Heartbeat) -> Heartbeat:
+        values: dict[str, Any] = {
+            "device_id": heartbeat.device_id,
+            "tenant_id": heartbeat.tenant_id,
+            "sent_at": heartbeat.sent_at,
+            "status": heartbeat.status,
+            "app_version": heartbeat.app_version,
+            "engine_version": heartbeat.engine_version,
+            "db_schema_version": heartbeat.db_schema_version,
+            "pending_sync_count": heartbeat.pending_sync_count,
+            "updated_at": heartbeat.sent_at,
+        }
+        insert_stmt = pg_insert(HeartbeatRow).values(**values)
+        statement = insert_stmt.on_conflict_do_update(
+            constraint="pk_heartbeat",
+            set_={column: insert_stmt.excluded[column] for column in values
+                  if column != "device_id"},
+        ).returning(HeartbeatRow)
+        with self._session_factory() as session, session.begin():
+            row = session.execute(statement).scalar_one()
+            return _heartbeat_from_row(row)
+
+
+class PostgresSyncEnvelopeRepository:
+    """sync_envelope 仓储（PostgreSQL，M3）。"""
+
+    def __init__(self, session_factory: sessionmaker[Session]) -> None:
+        self._session_factory = session_factory
+
+    def add(self, envelope: SyncEnvelope) -> None:
+        with self._session_factory() as session, session.begin():
+            session.add(
+                SyncEnvelopeRow(
+                    envelope_id=envelope.envelope_id,
+                    tenant_id=envelope.tenant_id,
+                    target_device_id=envelope.target_device_id,
+                    event_id=envelope.event_id,
+                    ciphertext=envelope.ciphertext,
+                    idempotency_key=envelope.idempotency_key,
+                    status=envelope.status.value,
+                    expires_at=envelope.expires_at,
+                    created_at=envelope.created_at or utc_now(),
+                    acked_at=envelope.acked_at,
+                )
+            )
+
+    def get(self, envelope_id: str) -> SyncEnvelope | None:
+        with self._session_factory() as session:
+            row = session.get(SyncEnvelopeRow, envelope_id)
+            return _envelope_from_row(row) if row is not None else None
+
+    def get_by_event_id(self, event_id: str) -> SyncEnvelope | None:
+        with self._session_factory() as session:
+            row = session.execute(
+                select(SyncEnvelopeRow).where(SyncEnvelopeRow.event_id == event_id)
+            ).scalar_one_or_none()
+            return _envelope_from_row(row) if row is not None else None
+
+    def list_enqueued(
+        self, *, tenant_id: str, target_device_id: str, limit: int, now: datetime
+    ) -> list[SyncEnvelope]:
+        with self._session_factory() as session:
+            rows = session.execute(
+                select(SyncEnvelopeRow)
+                .where(
+                    SyncEnvelopeRow.tenant_id == tenant_id,
+                    SyncEnvelopeRow.target_device_id == target_device_id,
+                    SyncEnvelopeRow.status == SyncEnvelopeStatus.ENQUEUED.value,
+                    or_(
+                        SyncEnvelopeRow.expires_at.is_(None),
+                        SyncEnvelopeRow.expires_at > now,
+                    ),
+                )
+                .order_by(SyncEnvelopeRow.created_at.asc())
+                .limit(limit)
+            ).scalars()
+            return [_envelope_from_row(row) for row in rows]
+
+    def mark_acked(self, envelope_id: str, now: datetime) -> SyncEnvelope | None:
+        with self._session_factory() as session, session.begin():
+            row = session.execute(
+                update(SyncEnvelopeRow)
+                .where(
+                    SyncEnvelopeRow.envelope_id == envelope_id,
+                    SyncEnvelopeRow.status != SyncEnvelopeStatus.ACKED.value,
+                )
+                .values(
+                    status=SyncEnvelopeStatus.ACKED.value,
+                    acked_at=now,
+                )
+                .returning(SyncEnvelopeRow)
+            ).scalar_one_or_none()
+        if row is not None:
+            return _envelope_from_row(row)
+        # 已被并发置为 ACKED（或不存在）：返回当前投影，由调用方判定幂等语义
+        return self.get(envelope_id)
+
+    def delete_expired(self, now: datetime) -> int:
+        with self._session_factory() as session, session.begin():
+            result = cast(
+                "CursorResult[Any]",
+                session.execute(
+                    delete(SyncEnvelopeRow).where(SyncEnvelopeRow.expires_at <= now)
+                ),
+            )
+            return int(result.rowcount or 0)

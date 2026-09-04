@@ -1,4 +1,4 @@
-"""api/v1 路由（M2：认证、账号、设备与状态流；心跳/任务/同步/配置/日志维持 stub）。
+"""api/v1 路由（M2：认证、账号、设备与状态流；M3：心跳、配置、任务与同步）。
 
 M2 实装：
 
@@ -8,10 +8,16 @@ M2 实装：
 - ``GET /events/stream``：SSE 状态流（Last-Event-ID 续传 + 15 秒保活）；
 - ``GET /events/snapshot``：轮询降级入口（DECISIONS.md D-006：失败后 30 秒轮询）。
 
-维持 stub（M3 交付，见 ``开发需求-A平台工作台.md`` §4）：
-``/config``、``/tasks``、``/tasks/pull``、``/sync/events/pull``、``/sync/ack``、
-``/telemetry``、``/merchants``、``/heartbeat``。stub 端点同样挂真实鉴权依赖，
-未携带有效令牌时先返回 401/403，不会落到业务逻辑。
+M3 实装：
+
+- ``POST /heartbeat``：设备心跳（版本三元组 + 待同步数 + 运行状态，upsert 最新投影）；
+- ``GET /config``：商户生效配置（版本 + 内容 + SHA-256 摘要与签名，客户端验签后应用）；
+- ``GET /tasks`` / ``POST /tasks/pull``：任务定义列表与设备拉取（CREATED → QUEUED 锁定）；
+- ``GET /sync/events/pull`` / ``POST /sync/ack``：加密信封拉取与幂等确认（TTL 过期清理）；
+- ``POST /dev/sync/inject``：Mock 小程序事件注入（dev 工具，生产环境 403 拒绝）。
+
+维持 stub（随开发者端页面交付）：``/telemetry``、``/merchants``。
+stub 端点同样挂真实鉴权依赖，未携带有效令牌时先返回 401/403，不会落到业务逻辑。
 """
 
 from __future__ import annotations
@@ -23,49 +29,76 @@ from collections.abc import AsyncIterator
 from datetime import UTC, datetime
 from typing import Annotated, Any, NoReturn
 
+from contracts import ErrorCode
 from fastapi import APIRouter, Depends, Header, Query, Request
 from fastapi.responses import StreamingResponse
 
 from app.api.v1.deps import (
     get_auth_service,
+    get_config_service,
     get_container,
     get_device_service,
+    get_heartbeat_service,
     get_hub,
     get_request_id,
+    get_sync_service,
+    get_task_service,
     require_developer_scope,
     require_principal,
     require_tenant_access,
     require_tenant_with_license,
     require_valid_token,
 )
-from app.api.v1.errors import not_implemented
+from app.api.v1.errors import ApiError, not_implemented
 from app.api.v1.schemas import (
     AccountData,
     AccountMeData,
     AccountMeResponse,
     AuthData,
+    ConfigData,
+    ConfigResponse,
     DeviceData,
     DeviceListResponse,
     DeviceRegisterRequest,
     DeviceRegisterResponse,
     ErrorResponse,
+    HeartbeatData,
+    HeartbeatRequest,
+    HeartbeatResponse,
     LicenseData,
     LoginRequest,
     LoginResponse,
     LogoutData,
     LogoutResponse,
+    PulledTaskData,
     RefreshRequest,
     RefreshResponse,
     SnapshotData,
     SnapshotResponse,
+    SyncAckData,
+    SyncAckRequest,
+    SyncAckResponse,
+    SyncEnvelopeData,
+    SyncEventsPullResponse,
+    SyncInjectRequest,
+    SyncInjectResponse,
+    TaskData,
+    TaskListResponse,
+    TaskPullRequest,
+    TaskPullResponse,
+    TaskRunData,
     TenantData,
     TokenData,
 )
 from app.application.auth_usecase import AuthResult
 from app.container import Container
 from app.domain.account import Account
+from app.domain.config import ConfigVersion
 from app.domain.device import Device, DeviceType
+from app.domain.heartbeat import Heartbeat
 from app.domain.license import LicenseEntitlement
+from app.domain.sync import SyncEnvelope
+from app.domain.task import Task, TaskRun
 from app.domain.tenant import Tenant
 from app.infrastructure.auth.tokens import Principal, new_client_type_of
 from app.infrastructure.realtime.hub import RealtimeHub, StatusEvent, parse_last_event_id
@@ -283,63 +316,205 @@ async def events_snapshot(
 
 
 # --------------------------------------------------------------------------
-# 维持 stub（M3：配置、任务、同步、心跳、开发者管理）
+# 心跳（M3）
+# --------------------------------------------------------------------------
+
+
+@router.post(
+    "/heartbeat",
+    tags=["heartbeat"],
+    response_model=HeartbeatResponse,
+    responses={400: {"model": ErrorResponse}, 401: {"model": ErrorResponse}},
+    summary="设备心跳上报",
+)
+async def heartbeat(
+    request: Request,
+    body: HeartbeatRequest,
+    principal: Annotated[Principal, Depends(require_tenant_access)],
+) -> HeartbeatResponse:
+    """工作台 Agent 心跳：upsert 最新投影并刷新设备在线状态。
+
+    设备必须已注册且归属当前商户（数据范围由令牌 tenant_id 决定，
+    不信任前端传入的任何租户字段）。
+    """
+    stored = get_heartbeat_service(request).report(
+        tenant_id=principal.tenant_id or "",
+        device_id=body.device_id,
+        status=body.status,
+        app_version=body.app_version,
+        engine_version=body.engine_version,
+        db_schema_version=body.db_schema_version,
+        pending_sync_count=body.pending_sync_count,
+    )
+    return HeartbeatResponse(data=_heartbeat_data(stored))
+
+
+# --------------------------------------------------------------------------
+# 配置（M3）
 # --------------------------------------------------------------------------
 
 
 @router.get(
     "/config",
     tags=["config"],
-    responses=_stub_responses(scoped=True),
-    summary="拉取配置（stub）",
+    response_model=ConfigResponse,
+    responses={401: {"model": ErrorResponse}},
+    summary="拉取生效配置",
 )
-async def get_config(principal: Annotated[Principal, Depends(require_tenant_access)]) -> None:
-    """拉取商户生效配置（stub：配置发布与验签属 M3）。"""
-    _raise_stub("GET /api/v1/config")
+async def get_config(
+    request: Request,
+    principal: Annotated[Principal, Depends(require_tenant_access)],
+) -> ConfigResponse:
+    """返回商户生效配置（版本 + 内容 + SHA-256 摘要与签名）。
+
+    客户端必须先校验摘要与签名再应用（spec：验签失败保留旧配置并告警）；
+    无已发布配置时 ``data`` 为 null，客户端走本地缓存兜底。
+    """
+    config = get_config_service(request).get_effective(principal.tenant_id or "")
+    return ConfigResponse(data=_config_data(config) if config is not None else None)
+
+
+# --------------------------------------------------------------------------
+# 任务（M3）
+# --------------------------------------------------------------------------
 
 
 @router.get(
     "/tasks",
     tags=["tasks"],
-    responses=_stub_responses(scoped=True),
-    summary="任务列表（stub）",
+    response_model=TaskListResponse,
+    responses={401: {"model": ErrorResponse}},
+    summary="任务列表",
 )
-async def list_tasks(principal: Annotated[Principal, Depends(require_tenant_access)]) -> None:
-    """查询商户调度任务（stub：调度与状态上报属 M3）。"""
-    _raise_stub("GET /api/v1/tasks")
+async def list_tasks(
+    request: Request,
+    principal: Annotated[Principal, Depends(require_tenant_access)],
+) -> TaskListResponse:
+    """列出商户全部任务定义（含禁用的，UI 需明示启用状态）。"""
+    tasks = get_task_service(request).list_tasks(principal.tenant_id or "")
+    return TaskListResponse(data=[_task_data(task) for task in tasks])
 
 
 @router.post(
     "/tasks/pull",
     tags=["tasks"],
-    responses=_stub_responses(scoped=True),
-    summary="拉取待执行任务（stub）",
+    response_model=TaskPullResponse,
+    responses={400: {"model": ErrorResponse}, 401: {"model": ErrorResponse}},
+    summary="拉取待执行任务",
 )
-async def pull_tasks(principal: Annotated[Principal, Depends(require_tenant_access)]) -> None:
-    """设备拉取待执行任务（stub：M3 托盘 Agent 交付）。"""
-    _raise_stub("POST /api/v1/tasks/pull")
+async def pull_tasks(
+    request: Request,
+    body: TaskPullRequest,
+    principal: Annotated[Principal, Depends(require_tenant_access)],
+) -> TaskPullResponse:
+    """设备拉取待执行任务：CREATED 运行原子锁定为 QUEUED，锁定后不再重复分发。
+
+    任务由云端定义、本地执行：完整结果留在本地，客户端执行后按 run_id 幂等上报状态。
+    """
+    pairs = get_task_service(request).pull(
+        tenant_id=principal.tenant_id or "",
+        device_id=body.device_id,
+        limit=body.limit,
+    )
+    return TaskPullResponse(
+        data=[PulledTaskData(task=_task_data(task), run=_run_data(run)) for task, run in pairs]
+    )
+
+
+# --------------------------------------------------------------------------
+# 小程序事件同步（M3）
+# --------------------------------------------------------------------------
 
 
 @router.get(
     "/sync/events/pull",
     tags=["sync"],
-    responses=_stub_responses(scoped=True),
-    summary="拉取同步事件（stub）",
+    response_model=SyncEventsPullResponse,
+    responses={400: {"model": ErrorResponse}, 401: {"model": ErrorResponse}},
+    summary="拉取同步事件信封",
 )
-async def pull_sync_events(principal: Annotated[Principal, Depends(require_tenant_access)]) -> None:
-    """拉取待同步的加密事件信封（stub：M3 交付）。"""
-    _raise_stub("GET /api/v1/sync/events/pull")
+async def pull_sync_events(
+    request: Request,
+    principal: Annotated[Principal, Depends(require_tenant_access)],
+    device_id: Annotated[str, Query(description="拉取信封的目标设备标识")],
+    limit: Annotated[
+        int, Query(ge=1, le=200, description="单次拉取上限，默认 50")
+    ] = 50,
+) -> SyncEventsPullResponse:
+    """按设备拉取 ENQUEUED 加密信封；拉取时顺带清理 TTL 过期信封。
+
+    云端只见密文；工作台解密、校验并落库成功后再 ACK。断网重试期间
+    信封保持 ENQUEUED（不伪造成功）。
+    """
+    envelopes = get_sync_service(request).pull(
+        tenant_id=principal.tenant_id or "",
+        device_id=device_id,
+        limit=limit,
+    )
+    return SyncEventsPullResponse(data=[_envelope_data(envelope) for envelope in envelopes])
 
 
 @router.post(
     "/sync/ack",
     tags=["sync"],
-    responses=_stub_responses(scoped=True),
-    summary="确认同步事件（stub）",
+    response_model=SyncAckResponse,
+    responses={400: {"model": ErrorResponse}, 401: {"model": ErrorResponse}},
+    summary="确认同步事件",
 )
-async def ack_sync(principal: Annotated[Principal, Depends(require_tenant_access)]) -> None:
-    """确认同步事件已应用（stub：M3 交付）。"""
-    _raise_stub("POST /api/v1/sync/ack")
+async def ack_sync(
+    request: Request,
+    body: SyncAckRequest,
+    principal: Annotated[Principal, Depends(require_tenant_access)],
+) -> SyncAckResponse:
+    """确认信封已应用：本地事务成功后逐个确认，重复 ACK 幂等成功。"""
+    _, already_acked = get_sync_service(request).ack(
+        tenant_id=principal.tenant_id or "",
+        envelope_id=body.envelope_id,
+    )
+    return SyncAckResponse(
+        data=SyncAckData(envelope_id=body.envelope_id, already_acked=already_acked)
+    )
+
+
+@router.post(
+    "/dev/sync/inject",
+    tags=["sync"],
+    response_model=SyncInjectResponse,
+    responses={400: {"model": ErrorResponse}, 401: {"model": ErrorResponse},
+               403: {"model": ErrorResponse}, 409: {"model": ErrorResponse}},
+    summary="Mock 小程序事件注入（dev 工具）",
+)
+async def inject_sync_event(
+    request: Request,
+    body: SyncInjectRequest,
+    principal: Annotated[Principal, Depends(require_tenant_access)],
+) -> SyncInjectResponse:
+    """dev 工具：Mock 小程序事件加密为密文信封写入 sync_envelope。
+
+    仅供本地联调与端到端测试使用；生产环境一律 403 拒绝
+    （不区分是否携带有效凭证，避免成为生产注入入口）。
+    """
+    if get_container(request).settings.is_production:
+        raise ApiError(
+            code=ErrorCode.AUTH_FORBIDDEN,
+            message="生产环境禁用 Mock 事件注入端点。",
+            details={"endpoint": "POST /api/v1/dev/sync/inject"},
+            status_code=403,
+        )
+    envelope = get_sync_service(request).inject(
+        tenant_id=principal.tenant_id or "",
+        target_device_id=body.target_device_id,
+        payload=body.payload,
+        event_id=body.event_id,
+        idempotency_key=body.idempotency_key,
+        ttl_seconds=body.ttl_seconds,
+    )
+    return SyncInjectResponse(data=_envelope_data(envelope))
+
+
+# --------------------------------------------------------------------------
+# 维持 stub（随开发者端页面交付）
+# --------------------------------------------------------------------------
 
 
 @router.get(
@@ -349,7 +524,7 @@ async def ack_sync(principal: Annotated[Principal, Depends(require_tenant_access
     summary="技术日志查询（开发者，stub）",
 )
 async def get_telemetry(principal: Annotated[Principal, Depends(require_developer_scope)]) -> None:
-    """开发者按商户 / 设备 / 版本 / 错误码筛选技术日志（stub：M3 交付）。"""
+    """开发者按商户 / 设备 / 版本 / 错误码筛选技术日志（stub：随开发者端交付）。"""
     _raise_stub("GET /api/v1/telemetry")
 
 
@@ -362,17 +537,6 @@ async def get_telemetry(principal: Annotated[Principal, Depends(require_develope
 async def list_merchants(principal: Annotated[Principal, Depends(require_developer_scope)]) -> None:
     """开发者查询商户列表（stub：随开发者端页面交付）。"""
     _raise_stub("GET /api/v1/merchants")
-
-
-@router.post(
-    "/heartbeat",
-    tags=["heartbeat"],
-    responses=_stub_responses(scoped=True),
-    summary="设备心跳（stub）",
-)
-async def heartbeat(principal: Annotated[Principal, Depends(require_tenant_access)]) -> None:
-    """设备心跳上报（stub：M3 托盘 Agent 交付）。"""
-    _raise_stub("POST /api/v1/heartbeat")
 
 
 # --------------------------------------------------------------------------
@@ -455,6 +619,72 @@ def _device_type_of(value: str) -> DeviceType:
         return DeviceType.DESKTOP
 
 
+def _heartbeat_data(heartbeat: Heartbeat) -> HeartbeatData:
+    return HeartbeatData(
+        device_id=heartbeat.device_id,
+        tenant_id=heartbeat.tenant_id,
+        sent_at=heartbeat.sent_at,
+        status=heartbeat.status,
+        app_version=heartbeat.app_version,
+        engine_version=heartbeat.engine_version,
+        db_schema_version=heartbeat.db_schema_version,
+        pending_sync_count=heartbeat.pending_sync_count,
+    )
+
+
+def _config_data(config: ConfigVersion) -> ConfigData:
+    return ConfigData(
+        tenant_id=config.tenant_id,
+        version=config.version,
+        content=dict(config.content),
+        sha256=config.sha256,
+        signature=config.signature,
+        schema_version=config.schema_version,
+        status=config.status.value,
+        effective_at=config.effective_at,
+        created_at=config.created_at,
+    )
+
+
+def _task_data(task: Task) -> TaskData:
+    return TaskData(
+        task_id=task.task_id,
+        tenant_id=task.tenant_id,
+        task_type=task.task_type,
+        cron_expr=task.cron_expr,
+        scope=dict(task.scope),
+        enabled=task.enabled,
+        created_at=task.created_at,
+    )
+
+
+def _run_data(run: TaskRun) -> TaskRunData:
+    return TaskRunData(
+        run_id=run.run_id,
+        task_id=run.task_id,
+        tenant_id=run.tenant_id,
+        status=run.status.value,
+        device_id=run.device_id,
+        scheduled_at=run.scheduled_at,
+        started_at=run.started_at,
+        finished_at=run.finished_at,
+        error_code=run.error_code,
+    )
+
+
+def _envelope_data(envelope: SyncEnvelope) -> SyncEnvelopeData:
+    return SyncEnvelopeData(
+        envelope_id=envelope.envelope_id,
+        event_id=envelope.event_id,
+        target_device_id=envelope.target_device_id,
+        ciphertext=envelope.ciphertext,
+        idempotency_key=envelope.idempotency_key,
+        status=envelope.status.value,
+        expires_at=envelope.expires_at,
+        created_at=envelope.created_at,
+    )
+
+
 async def sse_event_stream(
     hub: RealtimeHub,
     container: Container,
@@ -505,13 +735,19 @@ def build_snapshot(container: Container, tenant_id: str | None) -> SnapshotData:
     """构造状态快照：SSE 首帧与轮询降级共用同一结构，保证两条通道语义一致。"""
     entitlement = container.entitlement_service.evaluate(tenant_id)
     devices = container.device_service.list_devices(tenant_id) if tenant_id else []
+    # 待同步数：各设备最新心跳投影之和（M3 心跳上报后可计算；无心跳投影返回 None）
+    pending_counts = [
+        heartbeat.pending_sync_count
+        for device in devices
+        if (heartbeat := container.heartbeats.get(device.device_id)) is not None
+    ]
     return SnapshotData(
         event_id=container.hub.latest_event_id,
         generated_at=datetime.now(UTC),
         license=_license_data(entitlement),
         devices=[_device_data(device) for device in devices],
-        pending_sync_count=None,  # 同步积压由 M3 的托盘 Agent 上报
-        tasks=[],  # 任务状态由 M3 的调度链路上报
+        pending_sync_count=sum(pending_counts) if pending_counts else None,
+        tasks=[],  # 任务运行投影片段随开发者端页面交付（仓储暂无按租户列运行的端口）
     )
 
 

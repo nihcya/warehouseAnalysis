@@ -207,3 +207,40 @@ def test_auto_register_device_updates_card(
     assert "2" in window.status_card._devices_label.text()
     assert "5" in window.status_card._devices_label.text()
     assert "ACTIVE" in window.status_card._license_label.text()
+
+
+# --------------------------------------------------------------------------
+# 6. 待同步数（M3 Task 5：SyncWorker.sync_progress → StatusCard）
+# --------------------------------------------------------------------------
+
+
+def test_update_sync_pending_shows_count(qtbot) -> None:
+    """update_sync_pending 更新待同步数展示。"""
+    card = StatusCard()
+    qtbot.addWidget(card)
+
+    card.update_sync_pending(7)
+
+    assert card._sync_pending_label.text() == "待同步：7"
+
+
+def test_sync_progress_signal_updates_status_card(qtbot) -> None:
+    """SyncWorker.sync_progress(applied, failed, pending) → StatusCard 待同步数。
+
+    经真实 Qt 信号（QThread 类信号）触发 update_sync_pending，验证总览页
+    接线所依赖的信号-槽链路（pending 参数即卡片待同步数）。
+    """
+    from workbench.workers.sync_worker import SyncWorker
+
+    card = StatusCard()
+    qtbot.addWidget(card)
+    worker = SyncWorker(api_client=object(), session_factory=object(), device_id="dev-x")
+    worker.sync_progress.connect(
+        lambda applied, failed, pending: card.update_sync_pending(pending)
+    )
+
+    with qtbot.waitSignal(worker.sync_progress) as blocker:
+        worker.sync_progress.emit(1, 0, 7)
+
+    assert list(blocker.args) == [1, 0, 7]
+    assert card._sync_pending_label.text() == "待同步：7"

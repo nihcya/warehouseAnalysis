@@ -93,6 +93,7 @@ def test_save_session_persists_rotation_and_revocation(
     rotated = repo.get_session("ses_regression")
     assert rotated is not None
     assert rotated.refresh_token_hash == "hash_rotated"
+    assert rotated.rotated_at is not None
     assert _as_utc_naive(rotated.rotated_at) == _as_utc_naive(_NOW)
 
     rotated.revoke(_NOW)

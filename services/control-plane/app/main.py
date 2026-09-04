@@ -58,8 +58,9 @@ def create_app(container: Container | None = None) -> FastAPI:
         title="warehouse-control-plane",
         version=settings.APP_VERSION,
         description=(
-            "云端控制平面 /api/v1：认证、账号、设备与状态流（M2）；"
-            "心跳、任务、同步、配置与技术日志维持 stub（M3）"
+            "云端控制平面 /api/v1：认证、账号、设备、状态流（M2）；"
+            "心跳、配置、任务与小程序事件同步（M3）；"
+            "技术日志与商户管理维持 stub（随开发者端页面交付）"
         ),
     )
     # 组合根：仓储、事件中心与应用服务的进程级单例（deps 从 app.state 取用）

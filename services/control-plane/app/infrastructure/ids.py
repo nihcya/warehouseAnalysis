@@ -17,6 +17,11 @@ PREFIX_LICENSE = "lic"
 PREFIX_PRODUCT_PROFILE = "ppf"
 PREFIX_FEATURE_GRANT = "fgr"
 PREFIX_AUDIT = "aud"
+PREFIX_CONFIG_VERSION = "cfv"
+PREFIX_TASK = "tsk"
+PREFIX_TASK_RUN = "run"
+PREFIX_SYNC_ENVELOPE = "env"
+PREFIX_SYNC_EVENT = "evt"
 
 
 def new_id(prefix: str) -> str:

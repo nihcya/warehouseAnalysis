@@ -46,3 +46,13 @@ def license_expired(message: str = "许可证已过期或不可用。", **detail
 def device_revoked(message: str = "设备已被吊销，重新绑定前不可使用。", **details: Any) -> ControlPlaneError:
     """403：设备已吊销。"""
     return ControlPlaneError(code=ErrorCode.DEVICE_REVOKED, message=message, details=details)
+
+
+def validation_failed(message: str = "请求数据校验失败。", **details: Any) -> ControlPlaneError:
+    """400：请求数据校验失败（设备不存在、信封不存在、租户不匹配等）。"""
+    return ControlPlaneError(code=ErrorCode.DATA_VALIDATION_FAILED, message=message, details=details)
+
+
+def duplicate_event(message: str = "重复的事件。", **details: Any) -> ControlPlaneError:
+    """409：重复事件（event_id 唯一约束拦截）。"""
+    return ControlPlaneError(code=ErrorCode.DUPLICATE_EVENT, message=message, details=details)

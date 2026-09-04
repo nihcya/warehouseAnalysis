@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import uuid
 from pathlib import Path
+from typing import cast
 
 from alembic import command
 from alembic.config import Config
@@ -59,12 +60,13 @@ def test_upgrade_head_then_downgrade_base(alembic_cfg: Config, data_dir: Path) -
         assert LOCAL_TABLES <= _table_names(engine)
 
         with engine.connect() as conn:
-            meta = dict(conn.execute(text("SELECT key, value FROM local_meta")).all())
+            rows = conn.execute(text("SELECT key, value FROM local_meta")).all()
+            meta: dict[str, str] = dict(cast("list[tuple[str, str]]", rows))
             indexes = {
                 row[0]
                 for row in conn.execute(text("SELECT name FROM sqlite_master WHERE type='index'")).all()
             }
-        assert meta["db_schema_version"] == "local-0006"
+        assert meta["db_schema_version"] == "local-0007"
         assert meta["single_primary_workbench"] == "1"
         uuid.UUID(meta["install_instance_id"])  # 合法且非空 UUID
         assert "ix_analysis_result_run_id_result_type_sku_id" in indexes
@@ -77,8 +79,8 @@ def test_upgrade_head_then_downgrade_base(alembic_cfg: Config, data_dir: Path) -
 
 
 def test_downgrade_one_step_keeps_meta(alembic_cfg: Config, data_dir: Path) -> None:
-    """downgrade -1（head=0006_report_backup）：报告/备份两表消失，
-    其余表与 local_meta 保留，版本回到 local-0005。"""
+    """downgrade -1（head=0007_sync_config）：同步两表消失，
+    其余表与 local_meta 保留，版本回到 local-0006。"""
     engine, _factory = connect(data_dir)
     try:
         command.upgrade(alembic_cfg, "head")
@@ -90,10 +92,13 @@ def test_downgrade_one_step_keeps_meta(alembic_cfg: Config, data_dir: Path) -> N
         assert "inventory_event" in tables
         assert "import_batch" in tables
         assert "import_error" in tables
-        assert "report_artifact" not in tables
-        assert "backup_record" not in tables
+        assert "report_artifact" in tables
+        assert "backup_record" in tables
+        assert "sync_inbox" not in tables
+        assert "sync_outbox" not in tables
         with engine.connect() as conn:
-            meta = dict(conn.execute(text("SELECT key, value FROM local_meta")).all())
-        assert meta["db_schema_version"] == "local-0005"
+            rows = conn.execute(text("SELECT key, value FROM local_meta")).all()
+            meta: dict[str, str] = dict(cast("list[tuple[str, str]]", rows))
+        assert meta["db_schema_version"] == "local-0006"
     finally:
         engine.dispose()

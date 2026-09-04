@@ -67,6 +67,48 @@ class DeviceRegisterRequest(BaseModel):
     app_version: str | None = None
 
 
+class HeartbeatRequest(BaseModel):
+    """设备心跳请求（M3）。
+
+    ``device_id`` 必须归属当前令牌的租户（服务端校验，不信任其它租户字段）；
+    ``status`` 为工作台 Agent 自报运行状态文本（如 ``RUNNING`` / ``IDLE``）。
+    """
+
+    device_id: str
+    status: str
+    app_version: str | None = None
+    engine_version: str | None = None
+    db_schema_version: str | None = None
+    pending_sync_count: int = Field(default=0, ge=0)
+
+
+class TaskPullRequest(BaseModel):
+    """设备拉取待执行任务请求（M3）。"""
+
+    device_id: str
+    limit: int = Field(default=10, ge=1, le=50)
+
+
+class SyncAckRequest(BaseModel):
+    """同步信封确认请求（M3）：单个信封，应用成功后逐一确认。"""
+
+    envelope_id: str
+
+
+class SyncInjectRequest(BaseModel):
+    """Mock 小程序事件注入请求（M3 dev 工具，生产环境禁用）。
+
+    ``payload`` 为模拟的小程序事件明文，服务端加密为密文信封后落库；
+    ``event_id`` 缺省由服务端生成，显式传入便于幂等重放联调。
+    """
+
+    target_device_id: str
+    payload: dict[str, Any]
+    event_id: str | None = None
+    idempotency_key: str | None = None
+    ttl_seconds: int = Field(default=7 * 24 * 60 * 60, ge=60, le=30 * 24 * 60 * 60)
+
+
 # ---- 成功响应载荷 ----
 
 
@@ -208,3 +250,128 @@ class SnapshotResponse(BaseModel):
     """``GET /events/snapshot`` 响应（轮询降级入口）。"""
 
     data: SnapshotData
+
+
+# ---- M3：心跳 / 配置 / 任务 / 同步 ----
+
+
+class HeartbeatData(BaseModel):
+    """设备心跳最新投影。"""
+
+    device_id: str
+    tenant_id: str
+    sent_at: datetime
+    status: str
+    app_version: str | None = None
+    engine_version: str | None = None
+    db_schema_version: str | None = None
+    pending_sync_count: int
+
+
+class HeartbeatResponse(BaseModel):
+    """``POST /heartbeat`` 响应。"""
+
+    data: HeartbeatData
+
+
+class ConfigData(BaseModel):
+    """商户生效配置（客户端先验摘要与签名再应用，spec：配置下发与验签）。"""
+
+    tenant_id: str
+    version: str
+    content: dict[str, Any]
+    sha256: str
+    signature: str
+    schema_version: int
+    status: str
+    effective_at: datetime | None = None
+    created_at: datetime | None = None
+
+
+class ConfigResponse(BaseModel):
+    """``GET /config`` 响应：无已发布配置时 ``data`` 为 null（客户端走本地缓存）。"""
+
+    data: ConfigData | None
+
+
+class TaskData(BaseModel):
+    """调度任务定义（完整结果留在本地，云端只有定义与状态投影）。"""
+
+    task_id: str
+    tenant_id: str
+    task_type: str
+    cron_expr: str | None = None
+    scope: dict[str, Any] = Field(default_factory=dict)
+    enabled: bool
+    created_at: datetime | None = None
+
+
+class TaskListResponse(BaseModel):
+    """``GET /tasks`` 响应（含禁用任务，UI 明示启用状态）。"""
+
+    data: list[TaskData]
+
+
+class TaskRunData(BaseModel):
+    """任务运行投影：状态/时间/错误码，不含业务明细。"""
+
+    run_id: str
+    task_id: str
+    tenant_id: str
+    status: str
+    device_id: str | None = None
+    scheduled_at: datetime | None = None
+    started_at: datetime | None = None
+    finished_at: datetime | None = None
+    error_code: str | None = None
+
+
+class PulledTaskData(BaseModel):
+    """设备拉取到的待执行任务：任务定义 + 已锁定的运行投影。"""
+
+    task: TaskData
+    run: TaskRunData
+
+
+class TaskPullResponse(BaseModel):
+    """``POST /tasks/pull`` 响应。"""
+
+    data: list[PulledTaskData]
+
+
+class SyncEnvelopeData(BaseModel):
+    """同步信封（密文中继）：云端只见密文，解密与校验在工作台完成。"""
+
+    envelope_id: str
+    event_id: str
+    target_device_id: str
+    ciphertext: str
+    idempotency_key: str | None = None
+    status: str
+    expires_at: datetime | None = None
+    created_at: datetime | None = None
+
+
+class SyncEventsPullResponse(BaseModel):
+    """``GET /sync/events/pull`` 响应。"""
+
+    data: list[SyncEnvelopeData]
+
+
+class SyncAckData(BaseModel):
+    """同步确认结果：``already_acked`` 为 True 表示重复确认幂等成功。"""
+
+    envelope_id: str
+    already_acked: bool
+
+
+class SyncAckResponse(BaseModel):
+    """``POST /sync/ack`` 响应。"""
+
+    data: SyncAckData
+
+
+class SyncInjectResponse(BaseModel):
+    """``POST /dev/sync/inject`` 响应（dev 工具）。"""
+
+    data: SyncEnvelopeData

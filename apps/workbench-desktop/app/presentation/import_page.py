@@ -38,6 +38,13 @@ class ImportPage(QWidget):
 
         self.open_button.clicked.connect(self._open_wizard)
 
+    def set_read_only(self, read_only: bool) -> None:
+        """只读模式（安全模式 M3 Task 5）：禁用导入入口，页面仅可浏览。"""
+        self.open_button.setEnabled(not read_only)
+        self.open_button.setToolTip(
+            "安全模式：本地库迁移未完成，导入已禁用" if read_only else ""
+        )
+
     def _open_wizard(self) -> None:
         """模态打开导入向导；接受退出时回显最近一次导入汇总。"""
         wizard = ImportWizard(self._manager, self)

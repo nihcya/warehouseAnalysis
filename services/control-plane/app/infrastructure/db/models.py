@@ -179,3 +179,113 @@ class AuditLogRow(Base):
     request_id: Mapped[str | None] = mapped_column(Text, nullable=True)
     detail_json: Mapped[dict[str, object] | None] = mapped_column(JSON, nullable=True)
     occurred_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class ConfigVersionRow(Base):
+    """config_version：商户配置版本（M3，版本不可覆盖 + 发布状态机）。"""
+
+    __tablename__ = "config_version"
+
+    config_version_id: Mapped[str] = mapped_column(Text, primary_key=True)
+    tenant_id: Mapped[str] = mapped_column(
+        Text, ForeignKey("tenant.tenant_id"), nullable=False
+    )
+    version: Mapped[str] = mapped_column(Text, nullable=False)
+    content_json: Mapped[dict[str, object]] = mapped_column(JSON, nullable=False)
+    sha256: Mapped[str] = mapped_column(Text, nullable=False)
+    signature: Mapped[str] = mapped_column(Text, nullable=False)
+    schema_version: Mapped[int] = mapped_column(Integer, nullable=False)
+    status: Mapped[str] = mapped_column(Text, nullable=False)
+    published_by: Mapped[str | None] = mapped_column(Text, nullable=True)
+    effective_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class TaskRow(Base):
+    """task：调度任务（云端定义，本地执行）。"""
+
+    __tablename__ = "task"
+
+    task_id: Mapped[str] = mapped_column(Text, primary_key=True)
+    tenant_id: Mapped[str] = mapped_column(
+        Text, ForeignKey("tenant.tenant_id"), nullable=False
+    )
+    task_type: Mapped[str] = mapped_column(Text, nullable=False)
+    cron_expr: Mapped[str | None] = mapped_column(Text, nullable=True)
+    scope_json: Mapped[dict[str, object] | None] = mapped_column(JSON, nullable=True)
+    enabled: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    created_by: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class TaskRunRow(Base):
+    """task_run：任务运行投影（只存状态与摘要，不存业务明细原文）。"""
+
+    __tablename__ = "task_run"
+
+    run_id: Mapped[str] = mapped_column(Text, primary_key=True)
+    task_id: Mapped[str] = mapped_column(Text, ForeignKey("task.task_id"), nullable=False)
+    tenant_id: Mapped[str] = mapped_column(
+        Text, ForeignKey("tenant.tenant_id"), nullable=False
+    )
+    device_id: Mapped[str | None] = mapped_column(Text, nullable=True)
+    status: Mapped[str] = mapped_column(Text, nullable=False)
+    scheduled_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    started_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    finished_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    error_code: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class HeartbeatRow(Base):
+    """heartbeat：设备心跳最新投影（device_id 主键，一行一台设备）。"""
+
+    __tablename__ = "heartbeat"
+
+    device_id: Mapped[str] = mapped_column(
+        Text, ForeignKey("device.device_id"), primary_key=True
+    )
+    tenant_id: Mapped[str] = mapped_column(
+        Text, ForeignKey("tenant.tenant_id"), nullable=False
+    )
+    sent_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    status: Mapped[str] = mapped_column(Text, nullable=False)
+    app_version: Mapped[str | None] = mapped_column(Text, nullable=True)
+    engine_version: Mapped[str | None] = mapped_column(Text, nullable=True)
+    db_schema_version: Mapped[str | None] = mapped_column(Text, nullable=True)
+    pending_sync_count: Mapped[int] = mapped_column(Integer, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class SyncEnvelopeRow(Base):
+    """sync_envelope：小程序事件加密信封（event_id 全局唯一，密文中继）。"""
+
+    __tablename__ = "sync_envelope"
+
+    envelope_id: Mapped[str] = mapped_column(Text, primary_key=True)
+    tenant_id: Mapped[str] = mapped_column(
+        Text, ForeignKey("tenant.tenant_id"), nullable=False
+    )
+    target_device_id: Mapped[str] = mapped_column(
+        Text, ForeignKey("device.device_id"), nullable=False
+    )
+    event_id: Mapped[str] = mapped_column(Text, nullable=False, unique=True)
+    ciphertext: Mapped[str] = mapped_column(Text, nullable=False)
+    idempotency_key: Mapped[str | None] = mapped_column(Text, nullable=True)
+    status: Mapped[str] = mapped_column(Text, nullable=False)
+    expires_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    acked_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )

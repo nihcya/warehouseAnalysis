@@ -124,6 +124,95 @@
         "title": "AuthData",
         "type": "object"
       },
+      "ConfigData": {
+        "description": "商户生效配置（客户端先验摘要与签名再应用，spec：配置下发与验签）。",
+        "properties": {
+          "content": {
+            "additionalProperties": true,
+            "title": "Content",
+            "type": "object"
+          },
+          "created_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created At"
+          },
+          "effective_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Effective At"
+          },
+          "schema_version": {
+            "title": "Schema Version",
+            "type": "integer"
+          },
+          "sha256": {
+            "title": "Sha256",
+            "type": "string"
+          },
+          "signature": {
+            "title": "Signature",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "tenant_id": {
+            "title": "Tenant Id",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "tenant_id",
+          "version",
+          "content",
+          "sha256",
+          "signature",
+          "schema_version",
+          "status"
+        ],
+        "title": "ConfigData",
+        "type": "object"
+      },
+      "ConfigResponse": {
+        "description": "``GET /config`` 响应：无已发布配置时 ``data`` 为 null（客户端走本地缓存）。",
+        "properties": {
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ConfigData"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "title": "ConfigResponse",
+        "type": "object"
+      },
       "DeviceData": {
         "description": "设备信息。",
         "properties": {
@@ -342,6 +431,145 @@
         "title": "HealthResponse",
         "type": "object"
       },
+      "HeartbeatData": {
+        "description": "设备心跳最新投影。",
+        "properties": {
+          "app_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "App Version"
+          },
+          "db_schema_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Db Schema Version"
+          },
+          "device_id": {
+            "title": "Device Id",
+            "type": "string"
+          },
+          "engine_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Engine Version"
+          },
+          "pending_sync_count": {
+            "title": "Pending Sync Count",
+            "type": "integer"
+          },
+          "sent_at": {
+            "format": "date-time",
+            "title": "Sent At",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "tenant_id": {
+            "title": "Tenant Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "device_id",
+          "tenant_id",
+          "sent_at",
+          "status",
+          "pending_sync_count"
+        ],
+        "title": "HeartbeatData",
+        "type": "object"
+      },
+      "HeartbeatRequest": {
+        "description": "设备心跳请求（M3）。\n\n``device_id`` 必须归属当前令牌的租户（服务端校验，不信任其它租户字段）；\n``status`` 为工作台 Agent 自报运行状态文本（如 ``RUNNING`` / ``IDLE``）。",
+        "properties": {
+          "app_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "App Version"
+          },
+          "db_schema_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Db Schema Version"
+          },
+          "device_id": {
+            "title": "Device Id",
+            "type": "string"
+          },
+          "engine_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Engine Version"
+          },
+          "pending_sync_count": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Pending Sync Count",
+            "type": "integer"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "device_id",
+          "status"
+        ],
+        "title": "HeartbeatRequest",
+        "type": "object"
+      },
+      "HeartbeatResponse": {
+        "description": "``POST /heartbeat`` 响应。",
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/HeartbeatData"
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "title": "HeartbeatResponse",
+        "type": "object"
+      },
       "LicenseData": {
         "description": "许可证与离线宽限期评估结果。\n\n``status`` 取值：``ACTIVE`` / ``GRACE`` / ``EXPIRED`` / ``REVOKED`` / ``MISSING``；\n``GRACE`` 表示已过期但仍在离线宽限期内，此时接口仍放行，UI 必须明示剩余天数。",
         "properties": {
@@ -522,6 +750,23 @@
         "title": "LogoutResponse",
         "type": "object"
       },
+      "PulledTaskData": {
+        "description": "设备拉取到的待执行任务：任务定义 + 已锁定的运行投影。",
+        "properties": {
+          "run": {
+            "$ref": "#/components/schemas/TaskRunData"
+          },
+          "task": {
+            "$ref": "#/components/schemas/TaskData"
+          }
+        },
+        "required": [
+          "task",
+          "run"
+        ],
+        "title": "PulledTaskData",
+        "type": "object"
+      },
       "RefreshRequest": {
         "description": "刷新访问令牌请求。",
         "properties": {
@@ -611,6 +856,399 @@
           "data"
         ],
         "title": "SnapshotResponse",
+        "type": "object"
+      },
+      "SyncAckData": {
+        "description": "同步确认结果：``already_acked`` 为 True 表示重复确认幂等成功。",
+        "properties": {
+          "already_acked": {
+            "title": "Already Acked",
+            "type": "boolean"
+          },
+          "envelope_id": {
+            "title": "Envelope Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "envelope_id",
+          "already_acked"
+        ],
+        "title": "SyncAckData",
+        "type": "object"
+      },
+      "SyncAckRequest": {
+        "description": "同步信封确认请求（M3）：单个信封，应用成功后逐一确认。",
+        "properties": {
+          "envelope_id": {
+            "title": "Envelope Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "envelope_id"
+        ],
+        "title": "SyncAckRequest",
+        "type": "object"
+      },
+      "SyncAckResponse": {
+        "description": "``POST /sync/ack`` 响应。",
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/SyncAckData"
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "title": "SyncAckResponse",
+        "type": "object"
+      },
+      "SyncEnvelopeData": {
+        "description": "同步信封（密文中继）：云端只见密文，解密与校验在工作台完成。",
+        "properties": {
+          "ciphertext": {
+            "title": "Ciphertext",
+            "type": "string"
+          },
+          "created_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created At"
+          },
+          "envelope_id": {
+            "title": "Envelope Id",
+            "type": "string"
+          },
+          "event_id": {
+            "title": "Event Id",
+            "type": "string"
+          },
+          "expires_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expires At"
+          },
+          "idempotency_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Idempotency Key"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "target_device_id": {
+            "title": "Target Device Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "envelope_id",
+          "event_id",
+          "target_device_id",
+          "ciphertext",
+          "status"
+        ],
+        "title": "SyncEnvelopeData",
+        "type": "object"
+      },
+      "SyncEventsPullResponse": {
+        "description": "``GET /sync/events/pull`` 响应。",
+        "properties": {
+          "data": {
+            "items": {
+              "$ref": "#/components/schemas/SyncEnvelopeData"
+            },
+            "title": "Data",
+            "type": "array"
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "title": "SyncEventsPullResponse",
+        "type": "object"
+      },
+      "SyncInjectRequest": {
+        "description": "Mock 小程序事件注入请求（M3 dev 工具，生产环境禁用）。\n\n``payload`` 为模拟的小程序事件明文，服务端加密为密文信封后落库；\n``event_id`` 缺省由服务端生成，显式传入便于幂等重放联调。",
+        "properties": {
+          "event_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Event Id"
+          },
+          "idempotency_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Idempotency Key"
+          },
+          "payload": {
+            "additionalProperties": true,
+            "title": "Payload",
+            "type": "object"
+          },
+          "target_device_id": {
+            "title": "Target Device Id",
+            "type": "string"
+          },
+          "ttl_seconds": {
+            "default": 604800,
+            "maximum": 2592000.0,
+            "minimum": 60.0,
+            "title": "Ttl Seconds",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "target_device_id",
+          "payload"
+        ],
+        "title": "SyncInjectRequest",
+        "type": "object"
+      },
+      "SyncInjectResponse": {
+        "description": "``POST /dev/sync/inject`` 响应（dev 工具）。",
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/SyncEnvelopeData"
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "title": "SyncInjectResponse",
+        "type": "object"
+      },
+      "TaskData": {
+        "description": "调度任务定义（完整结果留在本地，云端只有定义与状态投影）。",
+        "properties": {
+          "created_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created At"
+          },
+          "cron_expr": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cron Expr"
+          },
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "scope": {
+            "additionalProperties": true,
+            "title": "Scope",
+            "type": "object"
+          },
+          "task_id": {
+            "title": "Task Id",
+            "type": "string"
+          },
+          "task_type": {
+            "title": "Task Type",
+            "type": "string"
+          },
+          "tenant_id": {
+            "title": "Tenant Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "task_id",
+          "tenant_id",
+          "task_type",
+          "enabled"
+        ],
+        "title": "TaskData",
+        "type": "object"
+      },
+      "TaskListResponse": {
+        "description": "``GET /tasks`` 响应（含禁用任务，UI 明示启用状态）。",
+        "properties": {
+          "data": {
+            "items": {
+              "$ref": "#/components/schemas/TaskData"
+            },
+            "title": "Data",
+            "type": "array"
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "title": "TaskListResponse",
+        "type": "object"
+      },
+      "TaskPullRequest": {
+        "description": "设备拉取待执行任务请求（M3）。",
+        "properties": {
+          "device_id": {
+            "title": "Device Id",
+            "type": "string"
+          },
+          "limit": {
+            "default": 10,
+            "maximum": 50.0,
+            "minimum": 1.0,
+            "title": "Limit",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "device_id"
+        ],
+        "title": "TaskPullRequest",
+        "type": "object"
+      },
+      "TaskPullResponse": {
+        "description": "``POST /tasks/pull`` 响应。",
+        "properties": {
+          "data": {
+            "items": {
+              "$ref": "#/components/schemas/PulledTaskData"
+            },
+            "title": "Data",
+            "type": "array"
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "title": "TaskPullResponse",
+        "type": "object"
+      },
+      "TaskRunData": {
+        "description": "任务运行投影：状态/时间/错误码，不含业务明细。",
+        "properties": {
+          "device_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Device Id"
+          },
+          "error_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Code"
+          },
+          "finished_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finished At"
+          },
+          "run_id": {
+            "title": "Run Id",
+            "type": "string"
+          },
+          "scheduled_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scheduled At"
+          },
+          "started_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started At"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "task_id": {
+            "title": "Task Id",
+            "type": "string"
+          },
+          "tenant_id": {
+            "title": "Tenant Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "run_id",
+          "task_id",
+          "tenant_id",
+          "status"
+        ],
+        "title": "TaskRunData",
         "type": "object"
       },
       "TenantData": {
@@ -726,7 +1364,7 @@
     }
   },
   "info": {
-    "description": "云端控制平面 /api/v1：认证、账号、设备与状态流（M2）；心跳、任务、同步、配置与技术日志维持 stub（M3）",
+    "description": "云端控制平面 /api/v1：认证、账号、设备、状态流（M2）；心跳、配置、任务与小程序事件同步（M3）；技术日志与商户管理维持 stub（随开发者端页面交付）",
     "title": "warehouse-control-plane",
     "version": "0.1.0"
   },
@@ -912,13 +1550,15 @@
     },
     "/api/v1/config": {
       "get": {
-        "description": "拉取商户生效配置（stub：配置发布与验签属 M3）。",
+        "description": "返回商户生效配置（版本 + 内容 + SHA-256 摘要与签名）。\n\n客户端必须先校验摘要与签名再应用（spec：验签失败保留旧配置并告警）；\n无已发布配置时 ``data`` 为 null，客户端走本地缓存兜底。",
         "operationId": "get_config_api_v1_config_get",
         "responses": {
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ConfigResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -931,7 +1571,59 @@
                 }
               }
             },
-            "description": "缺少或无效的凭证"
+            "description": "Unauthorized"
+          }
+        },
+        "summary": "拉取生效配置",
+        "tags": [
+          "config"
+        ]
+      }
+    },
+    "/api/v1/dev/sync/inject": {
+      "post": {
+        "description": "dev 工具：Mock 小程序事件加密为密文信封写入 sync_envelope。\n\n仅供本地联调与端到端测试使用；生产环境一律 403 拒绝\n（不区分是否携带有效凭证，避免成为生产注入入口）。",
+        "operationId": "inject_sync_event_api_v1_dev_sync_inject_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SyncInjectRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SyncInjectResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
           },
           "403": {
             "content": {
@@ -941,9 +1633,9 @@
                 }
               }
             },
-            "description": "缺少所需 Scope"
+            "description": "Forbidden"
           },
-          "501": {
+          "409": {
             "content": {
               "application/json": {
                 "schema": {
@@ -951,12 +1643,22 @@
                 }
               }
             },
-            "description": "M0 未实现（stub）"
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
           }
         },
-        "summary": "拉取配置（stub）",
+        "summary": "Mock 小程序事件注入（dev 工具）",
         "tags": [
-          "config"
+          "sync"
         ]
       }
     },
@@ -1192,16 +1894,38 @@
     },
     "/api/v1/heartbeat": {
       "post": {
-        "description": "设备心跳上报（stub：M3 托盘 Agent 交付）。",
+        "description": "工作台 Agent 心跳：upsert 最新投影并刷新设备在线状态。\n\n设备必须已注册且归属当前商户（数据范围由令牌 tenant_id 决定，\n不信任前端传入的任何租户字段）。",
         "operationId": "heartbeat_api_v1_heartbeat_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HeartbeatRequest"
+              }
+            }
+          },
+          "required": true
+        },
         "responses": {
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/HeartbeatResponse"
+                }
               }
             },
             "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
           },
           "401": {
             "content": {
@@ -1211,30 +1935,20 @@
                 }
               }
             },
-            "description": "缺少或无效的凭证"
+            "description": "Unauthorized"
           },
-          "403": {
+          "422": {
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
+                  "$ref": "#/components/schemas/HTTPValidationError"
                 }
               }
             },
-            "description": "缺少所需 Scope"
-          },
-          "501": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "M0 未实现（stub）"
+            "description": "Validation Error"
           }
         },
-        "summary": "设备心跳（stub）",
+        "summary": "设备心跳上报",
         "tags": [
           "heartbeat"
         ]
@@ -1292,16 +2006,38 @@
     },
     "/api/v1/sync/ack": {
       "post": {
-        "description": "确认同步事件已应用（stub：M3 交付）。",
+        "description": "确认信封已应用：本地事务成功后逐个确认，重复 ACK 幂等成功。",
         "operationId": "ack_sync_api_v1_sync_ack_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SyncAckRequest"
+              }
+            }
+          },
+          "required": true
+        },
         "responses": {
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/SyncAckResponse"
+                }
               }
             },
             "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
           },
           "401": {
             "content": {
@@ -1311,30 +2047,20 @@
                 }
               }
             },
-            "description": "缺少或无效的凭证"
+            "description": "Unauthorized"
           },
-          "403": {
+          "422": {
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
+                  "$ref": "#/components/schemas/HTTPValidationError"
                 }
               }
             },
-            "description": "缺少所需 Scope"
-          },
-          "501": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "M0 未实现（stub）"
+            "description": "Validation Error"
           }
         },
-        "summary": "确认同步事件（stub）",
+        "summary": "确认同步事件",
         "tags": [
           "sync"
         ]
@@ -1342,16 +2068,55 @@
     },
     "/api/v1/sync/events/pull": {
       "get": {
-        "description": "拉取待同步的加密事件信封（stub：M3 交付）。",
+        "description": "按设备拉取 ENQUEUED 加密信封；拉取时顺带清理 TTL 过期信封。\n\n云端只见密文；工作台解密、校验并落库成功后再 ACK。断网重试期间\n信封保持 ENQUEUED（不伪造成功）。",
         "operationId": "pull_sync_events_api_v1_sync_events_pull_get",
+        "parameters": [
+          {
+            "description": "拉取信封的目标设备标识",
+            "in": "query",
+            "name": "device_id",
+            "required": true,
+            "schema": {
+              "description": "拉取信封的目标设备标识",
+              "title": "Device Id",
+              "type": "string"
+            }
+          },
+          {
+            "description": "单次拉取上限，默认 50",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "description": "单次拉取上限，默认 50",
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/SyncEventsPullResponse"
+                }
               }
             },
             "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
           },
           "401": {
             "content": {
@@ -1361,30 +2126,20 @@
                 }
               }
             },
-            "description": "缺少或无效的凭证"
+            "description": "Unauthorized"
           },
-          "403": {
+          "422": {
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
+                  "$ref": "#/components/schemas/HTTPValidationError"
                 }
               }
             },
-            "description": "缺少所需 Scope"
-          },
-          "501": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "M0 未实现（stub）"
+            "description": "Validation Error"
           }
         },
-        "summary": "拉取同步事件（stub）",
+        "summary": "拉取同步事件信封",
         "tags": [
           "sync"
         ]
@@ -1392,13 +2147,15 @@
     },
     "/api/v1/tasks": {
       "get": {
-        "description": "查询商户调度任务（stub：调度与状态上报属 M3）。",
+        "description": "列出商户全部任务定义（含禁用的，UI 需明示启用状态）。",
         "operationId": "list_tasks_api_v1_tasks_get",
         "responses": {
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/TaskListResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -1411,30 +2168,10 @@
                 }
               }
             },
-            "description": "缺少或无效的凭证"
-          },
-          "403": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "缺少所需 Scope"
-          },
-          "501": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "M0 未实现（stub）"
+            "description": "Unauthorized"
           }
         },
-        "summary": "任务列表（stub）",
+        "summary": "任务列表",
         "tags": [
           "tasks"
         ]
@@ -1442,16 +2179,38 @@
     },
     "/api/v1/tasks/pull": {
       "post": {
-        "description": "设备拉取待执行任务（stub：M3 托盘 Agent 交付）。",
+        "description": "设备拉取待执行任务：CREATED 运行原子锁定为 QUEUED，锁定后不再重复分发。\n\n任务由云端定义、本地执行：完整结果留在本地，客户端执行后按 run_id 幂等上报状态。",
         "operationId": "pull_tasks_api_v1_tasks_pull_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TaskPullRequest"
+              }
+            }
+          },
+          "required": true
+        },
         "responses": {
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/TaskPullResponse"
+                }
               }
             },
             "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
           },
           "401": {
             "content": {
@@ -1461,30 +2220,20 @@
                 }
               }
             },
-            "description": "缺少或无效的凭证"
+            "description": "Unauthorized"
           },
-          "403": {
+          "422": {
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
+                  "$ref": "#/components/schemas/HTTPValidationError"
                 }
               }
             },
-            "description": "缺少所需 Scope"
-          },
-          "501": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "M0 未实现（stub）"
+            "description": "Validation Error"
           }
         },
-        "summary": "拉取待执行任务（stub）",
+        "summary": "拉取待执行任务",
         "tags": [
           "tasks"
         ]
@@ -1492,7 +2241,7 @@
     },
     "/api/v1/telemetry": {
       "get": {
-        "description": "开发者按商户 / 设备 / 版本 / 错误码筛选技术日志（stub：M3 交付）。",
+        "description": "开发者按商户 / 设备 / 版本 / 错误码筛选技术日志（stub：随开发者端交付）。",
         "operationId": "get_telemetry_api_v1_telemetry_get",
         "responses": {
           "200": {

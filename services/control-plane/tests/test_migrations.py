@@ -1,4 +1,4 @@
-"""云端控制库迁移测试（0001_control_meta）。
+"""云端控制库迁移测试（0001_control_meta 至 0005_config_task_heartbeat_sync）。
 
 本地无 PostgreSQL 时跳过（CI 通过 PostgreSQL service 容器执行）；
 可用环境变量 ``CONTROL_PLANE_TEST_DATABASE_URL`` 指定测试库。
@@ -18,6 +18,7 @@ from alembic.config import Config
 from app.settings import get_settings
 from sqlalchemy import create_engine, text
 from sqlalchemy.engine import make_url
+from sqlalchemy.exc import IntegrityError
 
 SERVICE_ROOT = Path(__file__).resolve().parents[1]
 ALEMBIC_INI = SERVICE_ROOT / "alembic.ini"
@@ -100,18 +101,33 @@ def test_control_meta_upgrade_downgrade_roundtrip(postgres_url: str) -> None:
         with admin.connect() as connection:
             tables = _tables_in(connection, schema)
             assert {"control_meta", "control_enum"} <= tables
+            # 0005（M3）：配置版本、任务、心跳与同步信封五表
+            assert {
+                "config_version",
+                "task",
+                "task_run",
+                "heartbeat",
+                "sync_envelope",
+            } <= tables
 
             enum_rows = connection.execute(
                 text(f'SELECT count(*) FROM "{schema}".control_enum')
             ).scalar_one()
             assert enum_rows > 0
+            # 0005 新增 config_status 枚举种子（run_status / sync_status 已由 0001 播种）
+            config_status_rows = connection.execute(
+                text(
+                    f"SELECT count(*) FROM \"{schema}\".control_enum WHERE kind = 'config_status'"
+                )
+            ).scalar_one()
+            assert config_status_rows == 3
 
             schema_version = connection.execute(
                 text(f'SELECT value FROM "{schema}".control_meta WHERE key = \'db_schema_version\'')
             ).scalar_one()
-            # upgrade head 运行全部迁移（0001→0004），0004 把版本号升到 control-0004；
+            # upgrade head 运行全部迁移（0001→0005），0005 把版本号升到 control-0005；
             # 断言最终版本，避免后续迁移新增时测试再次漂移。
-            assert schema_version == "control-0004"
+            assert schema_version == "control-0005"
 
         command.downgrade(cfg, "base")
 
@@ -119,6 +135,79 @@ def test_control_meta_upgrade_downgrade_roundtrip(postgres_url: str) -> None:
             tables = _tables_in(connection, schema)
             assert "control_meta" not in tables
             assert "control_enum" not in tables
+            # 0005 downgrade 完整回滚五张 M3 表
+            assert not {
+                "config_version",
+                "task",
+                "task_run",
+                "heartbeat",
+                "sync_envelope",
+            } & tables
+    finally:
+        with admin.connect() as connection:
+            connection.execute(text(f'DROP SCHEMA IF EXISTS "{schema}" CASCADE'))
+            connection.commit()
+        admin.dispose()
+
+
+def test_m3_unique_constraints(postgres_url: str) -> None:
+    """0005 唯一约束：配置版本不可覆盖、同步信封 event_id 全局唯一。
+
+    铺底数据（tenant / device）满足外键；断言 ``uq_config_version_tenant_version``
+    与 ``uq_sync_envelope_event_id`` 在数据库层拦截重复写入。
+    """
+    schema = f"control_test_{uuid.uuid4().hex[:12]}"
+    admin = create_engine(postgres_url, connect_args={"connect_timeout": CONNECT_TIMEOUT})
+    with admin.connect() as connection:
+        connection.execute(text(f'CREATE SCHEMA "{schema}"'))
+        connection.commit()
+
+    cfg = Config(str(ALEMBIC_INI), attributes={"database_url": _with_search_path(postgres_url, schema)})
+
+    def insert(sql: str) -> None:
+        with admin.connect() as connection:
+            connection.execute(text(sql))
+            connection.commit()
+
+    try:
+        command.upgrade(cfg, "head")
+        insert(
+            f'INSERT INTO "{schema}".tenant (tenant_id, name, status) '
+            "VALUES ('tnt_mig', '迁移测试商户', 'ACTIVE')"
+        )
+        insert(
+            f'INSERT INTO "{schema}".device '
+            "(device_id, tenant_id, device_type, name, fingerprint, status) "
+            "VALUES ('dev_mig', 'tnt_mig', 'DESKTOP', '迁移测试设备', 'fp-mig', 'REGISTERED')"
+        )
+        insert(
+            f'INSERT INTO "{schema}".config_version '
+            "(config_version_id, tenant_id, version, content_json, sha256, signature, status) "
+            "VALUES ('cfv_mig_1', 'tnt_mig', 'v1', '{}', "
+            f"'{'a' * 64}', 'sig-1', 'PUBLISHED')"
+        )
+        insert(
+            f'INSERT INTO "{schema}".sync_envelope '
+            "(envelope_id, tenant_id, target_device_id, event_id, ciphertext, status) "
+            "VALUES ('env_mig_1', 'tnt_mig', 'dev_mig', 'evt_mig_1', 'cipher-1', 'ENQUEUED')"
+        )
+
+        # 同一 (tenant_id, version) 的配置版本不可覆盖
+        with pytest.raises(IntegrityError, match="uq_config_version_tenant_version"):
+            insert(
+                f'INSERT INTO "{schema}".config_version '
+                "(config_version_id, tenant_id, version, content_json, sha256, signature, status) "
+                "VALUES ('cfv_mig_2', 'tnt_mig', 'v1', '{}', "
+                f"'{'b' * 64}', 'sig-2', 'PUBLISHED')"
+            )
+
+        # event_id 全局唯一（客户端幂等落库的数据库兜底）
+        with pytest.raises(IntegrityError, match="uq_sync_envelope_event_id"):
+            insert(
+                f'INSERT INTO "{schema}".sync_envelope '
+                "(envelope_id, tenant_id, target_device_id, event_id, ciphertext, status) "
+                "VALUES ('env_mig_2', 'tnt_mig', 'dev_mig', 'evt_mig_1', 'cipher-2', 'ENQUEUED')"
+            )
     finally:
         with admin.connect() as connection:
             connection.execute(text(f'DROP SCHEMA IF EXISTS "{schema}" CASCADE'))

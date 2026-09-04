@@ -50,6 +50,26 @@ def get_entitlement_service(request: Request):
     return get_container(request).entitlement_service
 
 
+def get_config_service(request: Request):
+    """取配置版本应用服务（M3）。"""
+    return get_container(request).config_service
+
+
+def get_task_service(request: Request):
+    """取调度任务应用服务（M3）。"""
+    return get_container(request).task_service
+
+
+def get_heartbeat_service(request: Request):
+    """取设备心跳应用服务（M3）。"""
+    return get_container(request).heartbeat_service
+
+
+def get_sync_service(request: Request):
+    """取同步信封应用服务（M3）。"""
+    return get_container(request).sync_service
+
+
 def get_hub(request: Request):
     """取状态流事件中心。"""
     return get_container(request).hub
