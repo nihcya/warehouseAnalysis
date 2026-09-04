@@ -260,10 +260,9 @@ def test_stop_interrupts_wait(qtbot, tmp_path, clean_env):
     """stop() 能中断心跳间隔等待，线程秒级退出。"""
     client = FakeApiClient()
     worker = _make_worker(client, tmp_path / "cache", interval=60.0)
-    worker.start()
 
     with qtbot.waitSignal(worker.heartbeat_sent, timeout=5000):
-        pass
+        worker.start()
     worker.stop()
     assert worker.wait(3000), "线程应在 stop() 后及时退出"
 
