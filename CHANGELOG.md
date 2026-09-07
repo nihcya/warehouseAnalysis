@@ -3,7 +3,7 @@
 本文件遵循 Keep a Changelog 风格，版本号遵循语义化版本（SemVer），日期格式为 YYYY-MM-DD。
 本文件是开发者 B 侧的变更记录：M0 的 contracts、engine、Skill、公式文档等组件由 B 并行交付，在此统一记录；开发者 A 侧组件（Desktop、Control API、Local DB 等）的变更由 A 侧记录。
 
-## [0.3.0] - 2026-08-30 - 未发布（M2：分析 Skill 实现）
+## [0.3.0] - 2026-09-07（M2 实现 + M3 稳定性与发布）
 
 ### Added
 
@@ -21,10 +21,27 @@
 - `inventory_kpi.calculate` 新增可选 `outcome` 入参（不传时自行重放），`analyze` 现只重放一次并将结果注入四个计算器。
 - 边界 fixture（5 份）analyze_warnings 由 `ANALYSIS_PLACEHOLDER` 更新为 M2 真实告警（NO_OUTFLOW/PARAM_MISSING/INSUFFICIENT_SAMPLES/BENCHMARK_UNAVAILABLE），逐条手验触发条件。
 
+### M3 稳定性与发布（2026-09-07 定稿，发布门槛证据见 `docs/m3-handover-b.md` 与 `docs/m3-staging-log-b.md`）
+
+- **Added**
+  - `tests/engine/test_version_consistency.py`：四源版本一致性守护（engine pyproject == `ENGINE_VERSION` == 黄金断言 == 兼容矩阵 Engine 行 + contracts pyproject 对齐 + formula_version 冻结断言），防止 M2 交付时发现的版本源漂移（pyproject 0.2.0 vs 运行时 0.3.0）再次发生。
+  - `tests/engine/test_determinism.py`：重复运行确定性测试——同进程连续 3 次 analyze 序列化逐字节一致；子进程复跑输出与父进程逐字节一致（含 `dataset_digest`）。
+  - `scripts/export_sbom.py` + `tests/engine/test_sbom_export.py`：CycloneDX 1.5 SBOM 导出（两个发布包 + 运行时依赖闭包，从已解析环境读取、不联网）与结构守护测试。
+  - `scripts/wheel_smoke.py`：独立环境 wheel 冒烟（全新 venv 仅装两个 wheel，黄金数据 v0.1.0 完整断言：18 指标 / 告警序列 / data_quality / digest，不依赖 workspace 源码）。
+  - `scripts/staging_verify.py`：staging 三项验证一键脚本（脱敏数据集合成 → 版本兼容 → 回滚演练 → 结果可追溯），固定种子可复现。
+  - 发布产物（`dist/`，不入库）：`warehouse_engine-0.3.0` 与 `contracts_python-0.3.0` 各 wheel + sdist（共 4 产物）、`SHA256SUMS`（4 产物，本地复算一致）、`sbom-engine-0.3.0.json`、`requirements-engine-0.3.0.txt`（锁定依赖清单）。
+- **Fixed**
+  - 版本源对齐：`packages/warehouse-engine/pyproject.toml` 0.2.0 → 0.3.0（描述同步五类公式 18 指标口径）、`packages/contracts-python/pyproject.toml` 0.2.0 → 0.3.0（与 m2-handover-b.md §1 示例命令一致）；纯版本源对齐，无行为变更。
+- **稳定性证据（M3 发布门槛，全部通过）**
+  - 全量回归：workspace 全量 `pytest` → 572 passed / 19 skipped 全绿；B 侧域（tests/engine + tests/contract）284 passed / 17 skipped，较 M2 基线（273 / 17）新增 11 项确定性/版本一致性/SBOM 测试，既有用例零删除、零新增 skip。
+  - contracts 零漂移：`export_schemas.py` 复导出与快照零 diff（2026-09-07 复测）。
+  - 性能复测（engine 0.3.0，3 轮全部满足 M1 阈值）：1 万行 analyze 0.45–0.59 秒（阈值 ≤5 秒）；10 万行 analyze 8.16–8.30 秒（阈值 ≤40 秒）、全链路 11.9–12.4 秒（阈值 ≤60 秒）；100 万行选跑 analyze 1155.11 秒（仅记录，阈值冻结留 M3 后规划；较 M1 基线 171.25 秒劣化约 6.7 倍，系 M2 五类公式 per-SKU 计算与重放内核扩展所致，见 m3-handover-b.md §5）。
+  - staging 验证（`docs/m3-staging-log-b.md`）：R3.1 版本兼容（manifest 全命中 + 黄金冒烟 + 结果归档）、R3.2 回滚演练（0.2.0 降级 schema 零 diff + 黄金通过 + manifest 拒绝不兼容组合，升回 0.3.0 结果字节级复现）、R3.3 结果可追溯（双版本 9 个共享指标值一致、dataset_digest 一致、差异逐条解释）全部 PASS。
+
 ### 说明
 
 - M2 实现决策（待 A/B 复核，完整记录在 `docs/m2-handover-b.md`）：§8.3 的「有效需求期数 n < 12」按全期间自然周数理解（非预测窗口），否则缺省 split_date 下会恒定触发降级；`ReplenishmentRecord.avg_daily_demand` 与 §7.2 的 d̄ 口径不同源，本计算器不消费该字段；BM.DEVIATION_RATIO 跨单位取相对偏差均值（不求和）。
-- wheel 不在 M2 产出（留 M3 发布门槛）；如需本地构建与独立环境验证见 `docs/m2-handover-b.md` §1。
+- wheel 已随 M3 发布（`dist/` 4 产物 + SHA256SUMS + SBOM + 依赖清单）；独立环境验证与 staging 结论见 `docs/m3-handover-b.md`。
 - 兼容性要求详见 `docs/compatibility-matrix.md`。
 
 ## [0.2.0] - 2026-08-29 - 未发布（M1：KPI/COGS 引擎实现）
