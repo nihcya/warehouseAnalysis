@@ -52,7 +52,19 @@ a = Analysis(
     pathex=[str(SPEC_DIR)],
     binaries=[],
     datas=datas,
-    hiddenimports=[],
+    # hiddenimports：PyInstaller 静态分析漏检、但 alembic/env.py 顶层 import
+    # 会触发的模块。缺任一会令首启迁移抛 ModuleNotFoundError 陷入安全模式。
+    # - logging.config / logging.handlers：env.py 顶层 `from logging.config import fileConfig`
+    #   即便 fileConfig 因 config_file_name=None 实际不调用，import 语句仍会触发模块加载；
+    # - json / yaml：alembic 在线模板序列化（M3 升级兼容性预占）；
+    # - zstandard：同步信封压缩依赖。
+    hiddenimports=[
+        "logging.config",
+        "logging.handlers",
+        "json",
+        "yaml",
+        "zstandard",
+    ],
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
