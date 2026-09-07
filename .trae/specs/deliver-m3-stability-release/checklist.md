@@ -41,7 +41,7 @@
 
 - [x] `docs/m3-handover-b.md` 对照 §9 交接包逐项可索引（§7 表格）
 - [x] `docs/compatibility-matrix.md` Engine/contracts 行更新、版本与日期刷新（文档版本 0.4.0）
-- [ ] 提交分批合理、信息清晰；PR 按 §26.2 模板；CI 绿（含 schema 漂移门禁）——提交与推送已完成，PR 待创建（gh 认证失效）
+- [ ] 提交分批合理、信息清晰；PR 按 §26.2 模板（PR #24 已创建）；CI 绿（含 schema 漂移门禁）——待 CI 运行结果确认
 - [x] spec/tasks/checklist 勾选状态与实际一致并随 PR 入库
 
 ## F. 非目标确认（防蔓延）

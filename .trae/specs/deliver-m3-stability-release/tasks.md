@@ -48,5 +48,5 @@
 ## Task 6 提交与 PR
 
 - [x] 分批提交（版本对齐 / 测试补强 / 发布脚本与产物 / staging 与文档），信息遵循仓库惯例。
-- [ ] 推送 `feature/b-m3-stability-release`，按 §26.2 模板创建 PR 至 master；CI 绿（schema 漂移门禁、测试）。分支已推送；PR 创建因 gh 认证失效暂缓（见 spec 状态区）。
-- [ ] 回填 PR 链接至本文件与本 spec 状态区，勾选全部任务后请求合并评审。
+- [x] 推送 `feature/b-m3-stability-release`，按 §26.2 模板创建 PR 至 master：**PR #24** https://github.com/nihcya/warehouseAnalysis/pull/24（CI 状态见 PR 页）。
+- [x] 回填 PR 链接至本文件与本 spec 状态区，勾选全部任务后请求合并评审。
