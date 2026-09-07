@@ -6,30 +6,49 @@
 > 用法：每轮发布按节逐项勾选；任一项失败即视为验收不通过，附截图/产物哈希回传归档。
 > 产物版本以 `apps/workbench-desktop/pyproject.toml` 为准，哈希以 `dist/SHA256SUMS.txt` 为准。
 
+## 0.5 开发机静默链路预检留证（2026-09-07，v0.1.0 安装包）
+
+> **性质声明**：以下为开发机（Windows Server / Administrator）上的**静默安装链路预检**，
+> 目的是在正式干净机验收前排除断路性缺陷（打包完整性、安装布局、首启建库、卸载清理、
+> 数据保留约定）。勾选项标注「（预检）」，**不替代**正式干净机人工验收。
+> 正式验收仍需全新虚拟机 + 安装向导 GUI 逐项走查。
+
+| 项 | 结果 |
+|---|---|
+| 产物 | `WarehouseWorkbench-Setup-0.1.0.exe`（59.8MB） |
+| 哈希（SHA-256） | 安装包 `bd643f6212d458255536b1ce4c746969269309ce54ba1b5a25e7b4443b906a83`；主程序 `ec28f98faadb7c41b97bd685a8a882f21477098015caef8fce21891733ea6c32`（与 `dist/SHA256SUMS.txt` 复核一致） |
+| 安装方式 | `/VERYSILENT /SUPPRESSMSGBOXES /NORESTART`（默认路径 `C:\Program Files\WarehouseWorkbench`；亦验证过 `/DIR=` 自定义路径） |
+| 首启环境 | 重定向 `LOCALAPPDATA` 至空目录模拟干净首启（`WORKBENCH_OFFLINE=1`） |
+| 卸载方式 | `unins000.exe /VERYSILENT` |
+
+预检方法：窗口枚举（`EnumWindows`）判定主窗口/安全模式、`winreg` 与文件系统核验、
+SQLite 直读 `alembic_version`。`backups\`、`reports\` 目录按设计在首次备份/导出后创建，
+预检未触发相应操作，留待正式验收。
+
 ## 0. 前置准备
 
 - [ ] 干净机已还原快照（无 Python、无旧版本工作台、无残留 `%LOCALAPPDATA%\WarehouseWorkbench`）
-- [ ] 安装包来自 `dist/WarehouseWorkbench-Setup-<版本>.exe`，`dist/SHA256SUMS.txt` 与产物一并取得
-- [ ] 哈希核验一致（PowerShell）：`Get-FileHash .\WarehouseWorkbench-Setup-<版本>.exe -Algorithm SHA256`
-- [ ] 已阅读 `dist/RELEASE_NOTES.txt`：确认签名状态（未签名时 SmartScreen 拦截属预期行为）
+- [x] 安装包来自 `dist/WarehouseWorkbench-Setup-<版本>.exe`，`dist/SHA256SUMS.txt` 与产物一并取得（预检）
+- [x] 哈希核验一致（PowerShell）：`Get-FileHash .\WarehouseWorkbench-Setup-<版本>.exe -Algorithm SHA256`（预检：逐字节重算一致）
+- [x] 已阅读 `dist/RELEASE_NOTES.txt`：确认签名状态（未签名时 SmartScreen 拦截属预期行为）（预检：当前产物未签名）
 - [ ] 控制平面（`services/control-plane`）在可达地址运行，并准备了测试账号与 Mock 小程序事件（断网/同步场景除外）
 
 ## 1. 干净机安装（Scenario：干净机安装）
 
 - [ ] 双击安装包可正常启动安装向导，界面为简体中文
 - [ ] 许可/选项页可正常前进，默认安装到 `C:\Program Files\WarehouseWorkbench`（Program Files，需 UAC 提权）
-- [ ] 桌面快捷方式「仓库分析工作台」按勾选项创建；开始菜单含主程序与卸载入口
-- [ ] 安装完成无报错；安装目录含 `WarehouseWorkbench.exe` 与 `_internal\`（含 `local-data\alembic\versions\` 迁移脚本）
-- [ ] 控制面板「应用」列表出现「仓库分析工作台 <版本>」，卸载入口可用
+- [x] 桌面快捷方式「仓库分析工作台」按勾选项创建；开始菜单含主程序与卸载入口（预检：公共桌面 lnk 与开始菜单两项 lnk 均生成）
+- [x] 安装完成无报错；安装目录含 `WarehouseWorkbench.exe` 与 `_internal\`（含 `local-data\alembic\versions\` 迁移脚本）（预检：exit=0，0001~0007 迁移脚本与 fixtures 齐备）
+- [x] 控制面板「应用」列表出现「仓库分析工作台 <版本>」，卸载入口可用（预检：HKLM 卸载注册表项 DisplayName=仓库分析工作台 / Ver=0.1.0 / UninstallString 有效）
 - [ ] 未签名产物首次启动出现 SmartScreen 提示时，可选择「更多信息 → 仍要运行」正常进入（预期行为，已在发布说明标注）
 
 ## 2. 首次启动与数据目录
 
-- [ ] 启动后主窗口正常显示，无 Python/控制台报错弹窗
-- [ ] 首启自动建库：`%LOCALAPPDATA%\WarehouseWorkbench\data\warehouse.db` 生成（Alembic 迁移到 head）
-- [ ] 同目录出现 `backups\`、`reports\` 兄弟目录（首次使用后创建）
-- [ ] 安装目录（Program Files）内**不产生**数据库等用户数据（只存程序）
-- [ ] 登录控制平面成功后设备注册、状态显示在线（离线环境则显示离线且本地操作不受阻断）
+- [x] 启动后主窗口正常显示，无 Python/控制台报错弹窗（预检：主窗口出现，无安全模式对话框）
+- [x] 首启自动建库：`%LOCALAPPDATA%\WarehouseWorkbench\data\warehouse.db` 生成（Alembic 迁移到 head）（预检：233KB，`alembic_version=0007_sync_config`，WH-01 自动种子）
+- [ ] 同目录出现 `backups\`、`reports\` 兄弟目录（首次使用后创建）（预检未触发备份/导出操作，按设计延后）
+- [x] 安装目录（Program Files）内**不产生**数据库等用户数据（只存程序）（预检：安装目录仅 exe/_internal/卸载器，零污染）
+- [ ] 登录控制平面成功后设备注册、状态显示在线（离线环境则显示离线且本地操作不受阻断）（预检仅覆盖离线模式启动）
 
 ## 3. 核心功能冒烟（Scenario：干净机安装——导入、分析、备份）
 
@@ -67,10 +86,10 @@
 
 ## 7. 卸载（Scenario：干净机安装——卸载）
 
-- [ ] 卸载向导可正常完成，Program Files 安装目录被清空/移除
-- [ ] 桌面与开始菜单快捷方式同步移除
-- [ ] 卸载完成弹窗明确提示：用户数据保留在 `%LOCALAPPDATA%\WarehouseWorkbench`，如需彻底清理请手动删除
-- [ ] 卸载后 `%LOCALAPPDATA%\WarehouseWorkbench`（数据库/备份/报告/凭据）**仍然保留**
+- [x] 卸载向导可正常完成，Program Files 安装目录被清空/移除（预检：静默卸载 exit=0，目录移除）
+- [x] 桌面与开始菜单快捷方式同步移除（预检：公共桌面 lnk 与开始菜单目录均清除）
+- [ ] 卸载完成弹窗明确提示：用户数据保留在 `%LOCALAPPDATA%\WarehouseWorkbench`，如需彻底清理请手动删除（预检为静默模式，弹窗文案需 GUI 验收确认）
+- [x] 卸载后 `%LOCALAPPDATA%\WarehouseWorkbench`（数据库/备份/报告/凭据）**仍然保留**（预检：数据库保留且仍可读，`alembic_version` 不变）
 - [ ] 重装同版本后旧数据可继续使用（保留策略生效）
 
 ## 8. 诊断包收集（配合排障）
