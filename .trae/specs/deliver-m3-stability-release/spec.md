@@ -7,7 +7,7 @@
 | 需求来源 | `docs/开发需求-B引擎Skill.md` §7 M3、§8.3 完成定义、§9 交接包；`docs/m2-handover-b.md` §1/§4 遗留项 |
 | 基线 | origin/master `9ef2d73`（含 A 侧 M3 PR #21/#23 与 B 侧 M2 PR #5/#14） |
 | 工作分支 | `feature/b-m3-stability-release`（自 origin/master 拉出，在 worktree `f:\publicPro\warehouseAnalysis-b-m1` 开发） |
-| 状态 | 待评审 |
+| 状态 | 实现完成；分支已推送 origin，PR 创建待执行（gh 认证失效，需 `gh auth login` 或经 GitHub 网页创建） |
 
 ## 1. 背景与目标
 
@@ -83,13 +83,13 @@ M3 补强项：
 
 ## 5. 验收标准（Definition of Done，对照需求 §8.3）
 
-1. [ ] workspace 全量测试通过，新增：确定性测试、版本一致性测试、SBOM 导出测试、wheel 独立环境冒烟脚本/测试；既有用例零删除零跳过。
-2. [ ] `scripts/export_schemas.py` 复导出零 diff（契约零改动证据归档）。
-3. [ ] `dist/` 含 4 个产物 + `SHA256SUMS` + `sbom-engine-0.3.0.json` + 依赖清单文件；SHA-256 复算一致；独立 venv 仅装 wheel 跑通黄金冒烟。
-4. [ ] perf_bench 1 万/10 万行 ≥3 轮全部达标（≤5s / ≤40s、全链路 ≤60s），数据落档。
-5. [ ] staging 三项验证（兼容/回滚/可追溯）完成并留档 `docs/m3-staging-log-b.md`，结论明确。
-6. [ ] `CHANGELOG.md` 0.3.0 正式定稿、`docs/m3-handover-b.md`、`docs/compatibility-matrix.md` 更新完毕，§9 交接包逐项可索引。
-7. [ ] PR 自 origin/master 拉出的 `feature/b-m3-stability-release` 合并，遵循 §26.2 PR 模板，CI 绿。
+1. [x] workspace 全量测试通过，新增：确定性测试、版本一致性测试、SBOM 导出测试、wheel 独立环境冒烟脚本/测试；既有用例零删除零跳过。
+2. [x] `scripts/export_schemas.py` 复导出零 diff（契约零改动证据归档）。
+3. [x] `dist/` 含 4 个产物 + `SHA256SUMS` + `sbom-engine-0.3.0.json` + 依赖清单文件；SHA-256 复算一致；独立 venv 仅装 wheel 跑通黄金冒烟。
+4. [x] perf_bench 1 万/10 万行 ≥3 轮全部达标（≤5s / ≤40s、全链路 ≤60s），数据落档。
+5. [x] staging 三项验证（兼容/回滚/可追溯）完成并留档 `docs/m3-staging-log-b.md`，结论明确。
+6. [x] `CHANGELOG.md` 0.3.0 正式定稿、`docs/m3-handover-b.md`、`docs/compatibility-matrix.md` 更新完毕，§9 交接包逐项可索引。
+7. [ ] PR 自 origin/master 拉出的 `feature/b-m3-stability-release` 合并，遵循 §26.2 PR 模板，CI 绿。（分支已推送；PR 待创建——gh 认证失效）
 
 ## 6. 风险与对策
 
