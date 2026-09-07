@@ -9,7 +9,9 @@
 ; 前置产物：需先运行 PyInstaller（workbench.spec），生成 dist\WarehouseWorkbench\
 ; 完整 --onedir 目录，本脚本将其整体安装到 Program Files。
 ;
-; 语言：简体中文（需 Inno Setup 6.2+，官方自带 ChineseSimplified.isl）。
+; 语言：简体中文。注意 Inno Setup 6 默认安装**不含** ChineseSimplified.isl，
+; 需从 issrc 仓库（Files/Languages/ChineseSimplified.isl）手动放入
+; <Inno Setup 6>\Languages\；build_release.py 的 check_installer_language 会预检。
 ; 数据约定：用户数据在 %LOCALAPPDATA%\WarehouseWorkbench，卸载默认保留并提示手动清理。
 
 #ifndef AppVersion

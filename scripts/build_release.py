@@ -109,6 +109,26 @@ def find_iscc() -> Path | None:
     return None
 
 
+def check_installer_language(iscc: Path) -> bool:
+    """检查 ISCC 安装目录是否携带 iss 所需的 ChineseSimplified.isl。
+
+    Inno Setup 6 的**默认安装不含**该文件（仅含官方语言集），需从
+    issrc 仓库手动放置：``Files/Languages/ChineseSimplified.isl`` →
+    ``<Inno Setup 6>\\Languages\\``。缺失时 ISCC 编译报
+    ``Cannot find Languages\\ChineseSimplified.isl``。返回 True 表示就绪。
+    """
+    isl = iscc.parent / "Languages" / "ChineseSimplified.isl"
+    if isl.is_file():
+        return True
+    print("[installer] 缺少简体中文语言文件：" + str(isl))
+    print("             Inno Setup 默认安装不含 ChineseSimplified.isl，请从 issrc 仓库获取：")
+    print(
+        "             gh api repos/jrsoftware/issrc/contents/Files/Languages/ChineseSimplified.isl "
+        '-H "Accept: application/vnd.github.raw" > <该路径>'
+    )
+    return False
+
+
 def signature_env() -> tuple[Path, Path, str] | None:
     """读取签名环境变量；返回 None 表示无证书环境（按未签名处理）。"""
     cert = os.environ.get(SIGN_CERT_ENV, "").strip()
@@ -241,6 +261,8 @@ def main() -> int:
             print("[installer] 未找到 ISCC（Inno Setup 编译器）：已跳过安装包编译")
             print("             安装 Inno Setup 6.2+（含 ChineseSimplified.isl）后重跑即可；")
             print("             当前可分发 dist/WarehouseWorkbench/（--onedir 免安装目录）。")
+        elif not check_installer_language(iscc):
+            print("[installer] 语言文件未就绪：已跳过安装包编译（按上述指引补齐后重跑）")
         else:
             if installer_exe.exists():
                 installer_exe.unlink()
