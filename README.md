@@ -3,7 +3,8 @@
 一套帮助中小仓库管理者、商家和采购负责人的**本地优先**库存品类分析决策工具：把 Excel/CSV 流水导入本地工作台，统一清洗校验后输出动销、周转、库龄、ABC、呆滞、补货与预测等结构化指标，辅助采购决策。
 
 - **产品形态**：Windows 本地工作台（PySide6）+ 商户 Web 管理端 + 开发者管理模式 + 微信小程序预留接口
-- **当前状态**：M3 已交付（PR #21）—— 托盘 Agent、小程序事件同步链路、控制平面配置/任务/心跳/同步端点、升级安全与打包发布脚本全部落地；引擎 engine 0.3.0 五类公式 18 个指标，工作台默认接真实引擎
+- **当前状态**：**v0.3.0 已发布**（tag `v0.3.0`）——engine 0.3.0 五类公式 18 个指标全实装，Windows 安装包 `WarehouseWorkbench-Setup-0.1.0.exe` 已交付（开发机 G5 静默链路预检通过，验收留证见 [docs/release-checklist.md](docs/release-checklist.md) §0.5），正式干净机人工验收与代码签名待完成
+- **最终用户**：安装与日常使用请直接阅读 [docs/用户手册.md](docs/用户手册.md)
 - **核心原则**：云端统一管理产品能力和运行状态，本地保存并处理商户业务数据；先确保数据正确、可追溯、可恢复，再逐步增加 AI 和移动端能力
 
 ---
@@ -169,7 +170,9 @@ warehouseAnalysis/
 | [m2-handover-b.md](docs/m2-handover-b.md) | B 侧交付 | M2 交接说明：engine 0.3.0 五类公式 18 指标、Skill 全实装、实验模型隔离与 M3 建议 |
 | [PRD.md](docs/PRD.md) / [DATABASE.md](docs/DATABASE.md) / [API.md](docs/API.md) | A 侧交付 | M2 技术文档：产品需求 / 数据库设计（ER 图与数据字典）/ 控制平面 API 参考 |
 | [er-diagram.md](docs/er-diagram.md) / [data-dictionary.md](docs/data-dictionary.md) | A 侧交付 | 数据库配套：实体关系图与字段级数据字典 |
-| [release-checklist.md](docs/release-checklist.md) | M3 交付 | 发布前检查清单：打包、安装、升级、回滚、断网恢复等验收项 |
+| [用户手册.md](docs/用户手册.md) | 面向用户 | 最终用户使用手册：安装与卸载、登录、数据导入、运行分析、导出报告、备份恢复与常见问题 |
+| [m3-handover-b.md](docs/m3-handover-b.md) / [m3-staging-log-b.md](docs/m3-staging-log-b.md) | B 侧交付 | M3 交接：engine 0.3.0 wheel/SBOM 发布、staging 验证（兼容/回滚/可追溯 + A 侧回填） |
+| [release-checklist.md](docs/release-checklist.md) | M3 交付 | 发布前检查清单：打包、安装、升级、回滚、断网恢复等验收项（§0.5 含开发机预检留证） |
 | [仓库项目详情介绍.html](docs/仓库项目详情介绍.html) | 面向外部 | HTML 版项目介绍页 |
 
 **文档关系**：
@@ -186,7 +189,9 @@ flowchart TB
     MATRIX["compatibility-matrix.md<br/>组件兼容矩阵（B 维护）"]
     HANDOVER["m0/m1/m2-handover-*.md<br/>各里程碑交接与验收记录"]
     TECHDOCS["PRD / DATABASE / API / er-diagram / data-dictionary<br/>M2 技术文档（A 产出）"]
+    MANUAL["用户手册.md<br/>最终用户使用手册"]
     RELEASE["release-checklist.md<br/>M3 发布检查清单"]
+    M3B["m3-handover-b.md / m3-staging-log-b.md<br/>M3 交付与 staging 验证（B 产出）"]
 
     PRD -->|"评审 + 架构升级"| BASE
     BASE -->|"评审对象"| REVIEW
@@ -194,6 +199,7 @@ flowchart TB
     BASE -->|"按角色拆分执行需求"| A
     BASE -->|"按角色拆分执行需求"| B
     BASE -.->|"口径摘要（非平行真相源）"| OVERVIEW
+    BASE -.->|"使用视角提炼"| MANUAL
     B -->|"M0 交付物 1：口径冻结"| FORMULA
     B -->|"M0 交付物 2：版本兼容"| MATRIX
     B -->|"M0 交付物 3：交接验收"| HANDOVER
@@ -201,16 +207,37 @@ flowchart TB
     HANDOVER -->|"记录 P0-2/P0-3 完成证据"| REVIEW
     BASE -.->|"M2 落地产出"| TECHDOCS
     BASE -.->|"M3 发布验收"| RELEASE
+    B -.->|"M3 稳定性交付"| M3B
+    M3B -.->|"验收留证"| RELEASE
 
     style BASE fill:#e8f0fe,stroke:#1a56db
     style REVIEW fill:#fff4e5,stroke:#d97706
 ```
 
-阅读顺序建议：新成员从 [项目概述.md](docs/项目概述.md) 入手 → [开发规划与协作需求文档.md](docs/开发规划与协作需求文档.md) 建立全貌 → 按角色读 A/B 执行文档 → [项目开发文档评审报告.md](docs/项目开发文档评审报告.md) 了解当前质量门禁状态。
+阅读顺序建议：新成员从 [项目概述.md](docs/项目概述.md) 入手 → [开发规划与协作需求文档.md](docs/开发规划与协作需求文档.md) 建立全貌 → 按角色读 A/B 执行文档 → [项目开发文档评审报告.md](docs/项目开发文档评审报告.md) 了解当前质量门禁状态。**最终用户无需阅读以上文档**，直接看 [用户手册.md](docs/用户手册.md)。
 
 ---
 
-**快速开始**（Python 3.11 + uv；Web 另需 Node.js 22 LTS + pnpm）：
+## 五、获取与安装（最终用户）
+
+**系统要求**：Windows 10/11 x64。无需预装 Python 或任何依赖——安装包已内置全部运行时。
+
+**安装**：
+
+1. 取得 `WarehouseWorkbench-Setup-<版本>.exe`（当前 0.1.0）与 `SHA256SUMS.txt`；
+2. 哈希核验（PowerShell）：`Get-FileHash .\WarehouseWorkbench-Setup-0.1.0.exe -Algorithm SHA256`，与 `SHA256SUMS.txt` 比对；
+3. 双击安装，默认安装到 `C:\Program Files\WarehouseWorkbench`，自动创建桌面与开始菜单快捷方式「仓库分析工作台」；
+4. 产物未做代码签名：首次运行如遇 SmartScreen 提示，选择「更多信息 → 仍要运行」（预期行为，见 `RELEASE_NOTES.txt`）。
+
+**数据目录约定**：所有用户数据（数据库、备份、报告、登录凭据）保存在 `%LOCALAPPDATA%\WarehouseWorkbench`，**不在安装目录**；卸载时自动保留，重装或升级后数据可继续使用。升级：关闭运行中的工作台后，直接运行新版本安装包覆盖安装。
+
+**卸载**：控制面板 → 应用 → 仓库分析工作台，或开始菜单的卸载入口。卸载完成后用户数据仍保留在 `%LOCALAPPDATA%\WarehouseWorkbench`，如需彻底清理请手动删除该目录。
+
+安装包由 `scripts/build_release.py` 一键产出（PyInstaller onedir + Inno Setup），本仓库不提交 dist 产物，随 release 附件交付。详细操作指引（登录、导入、分析、报告、备份）见 [docs/用户手册.md](docs/用户手册.md)。
+
+---
+
+**开发者快速开始**（Python 3.11 + uv；Web 另需 Node.js 22 LTS + pnpm）：
 
 ```powershell
 # 首次安装
@@ -231,4 +258,4 @@ pnpm typecheck
 uv run python scripts/export_schemas.py                    # 重新导出 JSON Schema
 ```
 
-详细交接信息见 [docs/m0-handover-b.md](docs/m0-handover-b.md)（B 侧 M0）及 m1/m2-handover-\* 系列（按里程碑），M3 发布验收见 [docs/release-checklist.md](docs/release-checklist.md)。
+详细交接信息见 [docs/m0-handover-b.md](docs/m0-handover-b.md)（B 侧 M0）及 m1/m2/m3-handover-\* 系列（按里程碑），M3 发布验收见 [docs/release-checklist.md](docs/release-checklist.md)，当前版本 tag 为 `v0.3.0`（组件版本明细与产物哈希见 tag 消息）。
