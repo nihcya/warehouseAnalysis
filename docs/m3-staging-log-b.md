@@ -80,6 +80,32 @@
 
 无。一次运行全部通过，无人工干预、无重试。
 
-## 8. 待 A 侧回填
+## 8. A 侧回填（已回填，2026-09-07）
 
-workbench 1.0.0 调用 engine 0.3.0 的**端到端联调**（A 侧操作 workbench 完成一次真实分析链路）不在本次 B 侧可自证范围，已在 `docs/m3-handover-b.md` §8 标记「待 A 回填」并发起协调。
+workbench 1.0.0 调用 engine 0.3.0 的**端到端联调**不在 B 侧可自证范围，由 A 侧于
+2026-09-07 完成回填验证（`docs/m3-handover-b.md` §8 对应项据此关闭）。
+
+**验证方式**：以 B 侧同一确定性 staging 数据集（`scripts/staging_verify.py::
+build_staging_payload`，固定种子）为输入，走 **A 侧工作台引擎接入路径**
+（`LocalEngineProvider`，即工作台组合根注入的真实引擎提供方，
+`WORKBENCH_ENGINE=local` 缺省路径）完成 validate → analyze 全链路。
+
+**结果（三项全部一致）**：
+
+| 项 | 值 | 与 B 侧一致 |
+|---|---|---|
+| 数据集指纹（payload SHA-256） | `3e66f5c6…29b8f563` | ✅ |
+| 引擎 / 公式版本 | `0.3.0` / `0.1.0` | ✅ |
+| 分析结果（18 指标，CRLF 口径 SHA-256） | `b2725a3b…b94efd16` | ✅ 与 `result-engine-0.3.0.json` 逐字节一致 |
+
+其他佐证：`validate_dataset` 通过（0 issues）；18 指标公式 ID 齐备
+（F-KPI-001~008 / F-COGS-001 / F-ABC-001 / F-AGE-001 / F-STALE-001 /
+F-REPL-001~003 / F-FCST-001~002 / F-BM-001）；
+`dataset_digest` 与 B 侧归档一致（同一数据集）。
+
+> 备注：逐字节比对时注意归档文件经 `Path.write_text` 在 Windows 落盘为
+> **CRLF** 行尾；内存序列化为 LF。按 CRLF 口径哈希方与归档一致
+> （LF 口径为 `7c81f77a…`，内容逐行 diff 为空）。
+
+**结论**：A 侧工作台调用 engine 0.3.0 的分析链路与 B 侧 staging 归档
+**结果完全一致**，staging R3.1 的 A 侧半边验证通过。
